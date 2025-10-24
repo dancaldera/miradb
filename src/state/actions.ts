@@ -1,0 +1,65 @@
+import { ColumnInfo, ConnectionInfo, DataRow, DBType, Notification, QueryHistoryItem, TableCacheEntry, TableInfo, ViewState } from '../types/state.js';
+import type { DatabaseError } from '../database/errors.js';
+
+export enum ActionType {
+  SetView = 'SET_VIEW',
+  SelectDBType = 'SELECT_DB_TYPE',
+  StartLoading = 'START_LOADING',
+  StopLoading = 'STOP_LOADING',
+  SetError = 'SET_ERROR',
+  ClearError = 'CLEAR_ERROR',
+  SetInfo = 'SET_INFO',
+  ClearInfo = 'CLEAR_INFO',
+  SetActiveConnection = 'SET_ACTIVE_CONNECTION',
+  ClearActiveConnection = 'CLEAR_ACTIVE_CONNECTION',
+  SetSavedConnections = 'SET_SAVED_CONNECTIONS',
+  AddSavedConnection = 'ADD_SAVED_CONNECTION',
+  UpdateSavedConnection = 'UPDATE_SAVED_CONNECTION',
+  RemoveSavedConnection = 'REMOVE_SAVED_CONNECTION',
+  SetTables = 'SET_TABLES',
+  SetColumns = 'SET_COLUMNS',
+  SetSelectedTable = 'SET_SELECTED_TABLE',
+  ClearSelectedTable = 'CLEAR_SELECTED_TABLE',
+  SetDataRows = 'SET_DATA_ROWS',
+  SetHasMoreRows = 'SET_HAS_MORE_ROWS',
+  SetCurrentOffset = 'SET_CURRENT_OFFSET',
+  SetTableCache = 'SET_TABLE_CACHE',
+  RemoveTableCacheEntry = 'REMOVE_TABLE_CACHE_ENTRY',
+  SetRefreshingTable = 'SET_REFRESHING_TABLE',
+  SetRefreshTimestamp = 'SET_REFRESH_TIMESTAMP',
+  AddNotification = 'ADD_NOTIFICATION',
+  RemoveNotification = 'REMOVE_NOTIFICATION',
+  SetQueryHistory = 'SET_QUERY_HISTORY',
+  AddQueryHistoryItem = 'ADD_QUERY_HISTORY_ITEM'
+}
+
+export type AppAction =
+  | { type: ActionType.SetView; view: ViewState }
+  | { type: ActionType.SelectDBType; dbType: DBType }
+  | { type: ActionType.StartLoading }
+  | { type: ActionType.StopLoading }
+  | { type: ActionType.SetError; error: string | DatabaseError }
+  | { type: ActionType.ClearError }
+  | { type: ActionType.SetInfo; message: string }
+  | { type: ActionType.ClearInfo }
+  | { type: ActionType.SetActiveConnection; connection: ConnectionInfo }
+  | { type: ActionType.ClearActiveConnection }
+  | { type: ActionType.SetSavedConnections; connections: ConnectionInfo[] }
+  | { type: ActionType.AddSavedConnection; connection: ConnectionInfo }
+  | { type: ActionType.UpdateSavedConnection; connection: ConnectionInfo }
+  | { type: ActionType.RemoveSavedConnection; connectionId: string }
+  | { type: ActionType.SetTables; tables: TableInfo[] }
+  | { type: ActionType.SetColumns; columns: ColumnInfo[] }
+  | { type: ActionType.SetSelectedTable; table: TableInfo }
+  | { type: ActionType.ClearSelectedTable }
+  | { type: ActionType.SetDataRows; rows: DataRow[] }
+  | { type: ActionType.SetHasMoreRows; hasMore: boolean }
+  | { type: ActionType.SetCurrentOffset; offset: number }
+  | { type: ActionType.SetTableCache; cache: Record<string, TableCacheEntry> }
+  | { type: ActionType.RemoveTableCacheEntry; key: string }
+  | { type: ActionType.SetRefreshingTable; key: string | null }
+  | { type: ActionType.SetRefreshTimestamp; key: string; timestamp: number }
+  | { type: ActionType.AddNotification; notification: Notification }
+  | { type: ActionType.RemoveNotification; id: string }
+  | { type: ActionType.SetQueryHistory; history: QueryHistoryItem[] }
+  | { type: ActionType.AddQueryHistoryItem; item: QueryHistoryItem };
