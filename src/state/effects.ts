@@ -11,6 +11,8 @@ import { DBType, ViewState } from '../types/state.js';
 import { tableCacheKey } from './cache.js';
 import type { NotificationLevel } from '../types/state.js';
 import { ConnectionError, DatabaseError } from '../database/errors.js';
+import { exportData, formatExportSummary } from '../utils/export.js';
+import { processRows } from '../utils/data-processing.js';
 
 export async function initializeApp(dispatch: AppDispatch): Promise<void> {
   dispatch({ type: ActionType.StartLoading });
@@ -677,6 +679,42 @@ function buildTableReference(dbType: DBType, table: TableInfo): string {
     return `${schemaName}.${tableName}`;
   }
   return tableName;
+}
+
+export async function exportTableData(
+  dispatch: AppDispatch,
+  state: AppState,
+  format: 'csv' | 'json',
+  includeHeaders: boolean
+): Promise<void> {
+  if (state.dataRows.length === 0 || state.columns.length === 0) {
+    dispatch({ type: ActionType.SetError, error: 'No data available to export.' });
+    return;
+  }
+
+  dispatch({ type: ActionType.StartLoading });
+
+  try {
+    // Apply current sorting and filtering to the export
+    const processedRows = processRows(state.dataRows, state.sortConfig, state.filterValue, state.columns);
+
+    const filepath = await exportData(processedRows, state.columns, {
+      format,
+      includeHeaders,
+      filename: undefined,
+      outputDir: undefined
+    });
+
+    const summary = formatExportSummary(filepath, processedRows.length, format, state.columns.length);
+    dispatch({ type: ActionType.SetInfo, message: summary });
+  } catch (error) {
+    dispatch({
+      type: ActionType.SetError,
+      error: error instanceof Error ? error.message : 'Export failed.'
+    });
+  } finally {
+    dispatch({ type: ActionType.StopLoading });
+  }
 }
 
 function quoteIdentifier(dbType: DBType, identifier: string): string {

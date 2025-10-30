@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { useAppDispatch, useAppState } from '../state/context.js';
 import { fetchColumns, fetchTables } from '../state/effects.js';
@@ -15,6 +15,18 @@ const buildLabel = (table: TableInfo) => {
 export const TablesView: React.FC = () => {
   const dispatch = useAppDispatch();
   const state = useAppState();
+
+  useInput((input, key) => {
+    if (input === 'q' && state.activeConnection) {
+      dispatch({ type: ActionType.SetView, view: ViewState.Query });
+    }
+    if (input === 'h' && state.queryHistory.length > 0) {
+      dispatch({ type: ActionType.SetView, view: ViewState.QueryHistory });
+    }
+    if (input === 's') {
+      dispatch({ type: ActionType.SetView, view: ViewState.SavedConnections });
+    }
+  });
 
   useEffect(() => {
     if (!state.activeConnection || !state.dbType) {
@@ -103,7 +115,9 @@ export const TablesView: React.FC = () => {
         />
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>Enter opens column details • Esc choose another database.</Text>
+        <Text dimColor>
+          Enter: Open column details | q: SQL Query | h: Query History | s: Saved Connections | Esc: Back
+        </Text>
       </Box>
     </Box>
   );

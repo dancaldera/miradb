@@ -1,17 +1,20 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useAppDispatch, useAppState } from '../state/context.js';
-import { clearConnectionCache, clearTableCacheEntry, fetchColumns, fetchTableData } from '../state/effects.js';
+import { clearConnectionCache, clearTableCacheEntry, exportTableData, fetchColumns, fetchTableData } from '../state/effects.js';
 import { ViewState } from '../types/state.js';
 import { ActionType } from '../state/actions.js';
 import type { ColumnInfo, TableInfo } from '../types/state.js';
 import { tableCacheKey } from '../state/cache.js';
+import { processRows, formatValueForDisplay, truncateString, calculateColumnWidth } from '../utils/data-processing.js';
+import { copyToClipboard, formatTableForClipboard } from '../utils/clipboard.js';
 
 const PAGE_SIZE = 50;
 
 export const DataPreviewView: React.FC = () => {
   const dispatch = useAppDispatch();
   const state = useAppState();
+  const [horizontalOffset, setHorizontalOffset] = useState(0);
 
   const table = state.selectedTable;
 
@@ -89,24 +92,151 @@ export const DataPreviewView: React.FC = () => {
         connectionString: state.activeConnection.connectionString
       }, table, { offset: state.currentOffset + PAGE_SIZE, limit: PAGE_SIZE });
     }
+
+    if (input === 'd' && state.dataRows.length > 0) {
+      dispatch({ type: ActionType.SetView, view: ViewState.RowDetail });
+    }
+
+    if (input === 'q') {
+      dispatch({ type: ActionType.SetView, view: ViewState.Query });
+    }
+
+    // Sorting shortcuts
+    if (input === 's' && state.columns.length > 0) {
+      // Cycle through columns for sorting
+      const currentColumn = state.sortConfig.column;
+      const currentDirection = state.sortConfig.direction;
+
+      let nextColumn: string | null = null;
+      let nextDirection: 'asc' | 'desc' | 'off' = 'asc';
+
+      if (!currentColumn) {
+        // Start with first column
+        nextColumn = state.columns[0].name;
+        nextDirection = 'asc';
+      } else {
+        const currentIndex = state.columns.findIndex(col => col.name === currentColumn);
+        if (currentIndex === -1) {
+          // Current column not found, start over
+          nextColumn = state.columns[0].name;
+          nextDirection = 'asc';
+        } else {
+          if (currentDirection === 'asc') {
+            // Same column, switch to desc
+            nextColumn = currentColumn;
+            nextDirection = 'desc';
+          } else if (currentDirection === 'desc') {
+            // Same column, switch to off
+            nextColumn = null;
+            nextDirection = 'off';
+          } else {
+            // Move to next column
+            const nextIndex = (currentIndex + 1) % state.columns.length;
+            nextColumn = state.columns[nextIndex].name;
+            nextDirection = 'asc';
+          }
+        }
+      }
+
+      dispatch({
+        type: ActionType.SetSortConfig,
+        sortConfig: { column: nextColumn, direction: nextDirection }
+      });
+    }
+
+    // Clear sorting
+    if (input === 'S') {
+      dispatch({
+        type: ActionType.SetSortConfig,
+        sortConfig: { column: null, direction: 'off' }
+      });
+    }
+
+    // Filtering shortcuts
+    if (input === 'f') {
+      // This would require a more complex input dialog
+      // For now, just clear filter
+      dispatch({ type: ActionType.SetFilterValue, filterValue: '' });
+    }
+
+    // Export shortcuts
+    if (input === 'e') {
+      // Export as CSV
+      void exportTableData(dispatch, state, 'csv', true);
+    }
+    if (input === 'E') {
+      // Export as JSON
+      void exportTableData(dispatch, state, 'json', true);
+    }
+
+    // Clipboard shortcuts
+    if (input === 'c' && key.ctrl) {
+      // Copy current view to clipboard
+      const tableText = formatTableForClipboard(rowsToDisplay, state.columns, true);
+      copyToClipboard(tableText).then(success => {
+        if (success) {
+          dispatch({
+            type: ActionType.SetInfo,
+            message: `Copied ${rowsToDisplay.length} rows to clipboard`
+          });
+        } else {
+          dispatch({
+            type: ActionType.SetError,
+            error: 'Failed to copy to clipboard'
+          });
+        }
+      });
+      return;
+    }
+
+    // Horizontal scrolling
+    if (key.leftArrow && horizontalOffset > 0) {
+      setHorizontalOffset(Math.max(0, horizontalOffset - 10));
+    }
+    if (key.rightArrow && horizontalOffset < 100) {
+      setHorizontalOffset(Math.min(100, horizontalOffset + 10));
+    }
   });
 
-  const rowsToDisplay = state.dataRows;
+  // Process rows with sorting and filtering
+  const processedRows = useMemo(() => {
+    return processRows(state.dataRows, state.sortConfig, state.filterValue, state.columns);
+  }, [state.dataRows, state.sortConfig, state.filterValue, state.columns]);
 
-  const totalLoaded = state.currentOffset + state.dataRows.length;
+  const rowsToDisplay = processedRows;
+
+  const totalLoaded = state.currentOffset + processedRows.length;
   const cacheKey = tableCacheKey(table);
   const cacheEntry = cacheKey ? state.tableCache[cacheKey] : undefined;
   const statusMessage = useMemo(() => {
     const currentPage = Math.floor(state.currentOffset / PAGE_SIZE) + 1;
     const moreRowsText = state.hasMoreRows ? 'More rows available' : 'End of results';
     const prevText = state.currentOffset > 0 ? 'p previous page' : 'prev unavailable';
-    const nextText = state.hasMoreRows ? 'n/→ next page' : 'next unavailable';
+    const nextText = state.hasMoreRows ? 'n next page' : 'next unavailable';
     const cacheText = cacheEntry ? (cacheEntry.rows.length > 0 ? 'cache warm' : 'cache metadata') : 'cache empty';
-    const controlInfo = ['←/b back', prevText, nextText, 'r refresh', 'c clear table cache', 'g clear all cache']
-      .filter(Boolean)
-      .join(', ');
-    return `Rows loaded: ${totalLoaded} • Page: ${currentPage} • ${moreRowsText} • ${cacheText} • Controls: ${controlInfo}`;
-  }, [cacheEntry, state.currentOffset, state.hasMoreRows, totalLoaded]);
+
+    let sortText = '';
+    if (state.sortConfig.column && state.sortConfig.direction !== 'off') {
+      sortText = `Sorted by ${state.sortConfig.column} (${state.sortConfig.direction})`;
+    }
+
+    let filterText = '';
+    if (state.filterValue) {
+      filterText = `Filtered: "${state.filterValue}"`;
+    }
+
+    const parts = [
+      `Rows: ${rowsToDisplay.length}${state.filterValue ? `/${state.dataRows.length}` : ''} loaded`,
+      `Page: ${currentPage}`,
+      moreRowsText,
+      cacheText,
+      sortText,
+      filterText,
+      `Controls: ←/b back, ${prevText}, ${nextText}, s sort, S clear sort, f clear filter, r refresh, c clear cache, g clear all`
+    ].filter(Boolean);
+
+    return parts.join(' • ');
+  }, [cacheEntry, state.currentOffset, state.hasMoreRows, totalLoaded, rowsToDisplay.length, state.dataRows.length, state.sortConfig, state.filterValue]);
 
   const columnSummary = useMemo(() => {
     if (state.columns.length === 0) {
@@ -154,6 +284,11 @@ export const DataPreviewView: React.FC = () => {
         <Text dimColor>
           {statusMessage}
           {state.loading ? ' Loading…' : ''}
+        </Text>
+      </Box>
+      <Box marginTop={1}>
+        <Text color="gray" dimColor>
+          ←/b: Back | p/n: Previous/Next page | s: Sort | S: Clear sort | f: Clear filter | e: Export CSV | E: Export JSON | Ctrl+C: Copy | r: Refresh | c: Clear cache | d: Row details | q: Query
         </Text>
       </Box>
     </Box>

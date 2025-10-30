@@ -66,6 +66,13 @@ export interface TableCacheEntry {
 
 export type NotificationLevel = 'info' | 'warning' | 'error';
 
+export type SortDirection = 'asc' | 'desc' | 'off';
+
+export interface SortConfig {
+  column: string | null;
+  direction: SortDirection;
+}
+
 export interface Notification {
   id: string;
   message: string;
@@ -92,6 +99,8 @@ export interface AppState {
   loading: boolean;
   errorMessage: string | null;
   infoMessage: string | null;
+  sortConfig: SortConfig;
+  filterValue: string;
 }
 
 export const initialAppState: AppState = {
@@ -112,5 +121,7 @@ export const initialAppState: AppState = {
   queryHistory: [],
   loading: false,
   errorMessage: null,
-  infoMessage: null
+  infoMessage: null,
+  sortConfig: { column: null, direction: 'off' },
+  filterValue: ''
 };

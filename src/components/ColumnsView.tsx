@@ -34,6 +34,18 @@ export const ColumnsView: React.FC = () => {
     if (key.return || input === 'o') {
       dispatch({ type: ActionType.SetView, view: ViewState.DataPreview });
     }
+
+    if (input === 'r') {
+      dispatch({ type: ActionType.SetView, view: ViewState.Relationships });
+    }
+
+    if (input === 'i') {
+      dispatch({ type: ActionType.SetView, view: ViewState.Indexes });
+    }
+
+    if (input === 'q') {
+      dispatch({ type: ActionType.SetView, view: ViewState.Query });
+    }
   });
 
   if (!table) {
@@ -48,7 +60,7 @@ export const ColumnsView: React.FC = () => {
     <ViewBuilder
       title={`Columns • ${table.schema ? `${table.schema}.` : ''}${table.name}`}
       subtitle={state.loading ? 'Loading columns…' : undefined}
-      footer="Enter/o open data preview • Esc back"
+      footer="Enter/o: Data preview | r: Relationships | i: Indexes | q: Query • Esc back"
     >
       {state.columns.length === 0 && !state.loading ? (
         <Text dimColor>No column metadata available.</Text>

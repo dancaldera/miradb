@@ -1,4 +1,4 @@
-import { ColumnInfo, ConnectionInfo, DataRow, DBType, Notification, QueryHistoryItem, TableCacheEntry, TableInfo, ViewState } from '../types/state.js';
+import { ColumnInfo, ConnectionInfo, DataRow, DBType, Notification, QueryHistoryItem, SortConfig, TableCacheEntry, TableInfo, ViewState } from '../types/state.js';
 import type { DatabaseError } from '../database/errors.js';
 
 export enum ActionType {
@@ -30,7 +30,10 @@ export enum ActionType {
   AddNotification = 'ADD_NOTIFICATION',
   RemoveNotification = 'REMOVE_NOTIFICATION',
   SetQueryHistory = 'SET_QUERY_HISTORY',
-  AddQueryHistoryItem = 'ADD_QUERY_HISTORY_ITEM'
+  AddQueryHistoryItem = 'ADD_QUERY_HISTORY_ITEM',
+  SetSortConfig = 'SET_SORT_CONFIG',
+  SetFilterValue = 'SET_FILTER_VALUE',
+  ExportData = 'EXPORT_DATA'
 }
 
 export type AppAction =
@@ -62,4 +65,7 @@ export type AppAction =
   | { type: ActionType.AddNotification; notification: Notification }
   | { type: ActionType.RemoveNotification; id: string }
   | { type: ActionType.SetQueryHistory; history: QueryHistoryItem[] }
-  | { type: ActionType.AddQueryHistoryItem; item: QueryHistoryItem };
+  | { type: ActionType.AddQueryHistoryItem; item: QueryHistoryItem }
+  | { type: ActionType.SetSortConfig; sortConfig: SortConfig }
+  | { type: ActionType.SetFilterValue; filterValue: string }
+  | { type: ActionType.ExportData; format: 'csv' | 'json'; includeHeaders: boolean };

@@ -236,6 +236,14 @@ export function appReducer(state: AppState = initialAppState, action: AppAction)
         draft.queryHistory.unshift(action.item);
         break;
 
+      case ActionType.SetSortConfig:
+        draft.sortConfig = action.sortConfig;
+        break;
+
+      case ActionType.SetFilterValue:
+        draft.filterValue = action.filterValue;
+        break;
+
       default:
         return state;
     }

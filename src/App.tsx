@@ -11,6 +11,11 @@ import { TablesView } from './components/TablesView.js';
 import { DataPreviewView } from './components/DataPreviewView.js';
 import { SavedConnectionsView } from './components/SavedConnectionsView.js';
 import { ColumnsView } from './components/ColumnsView.js';
+import { QueryView } from './components/QueryView.js';
+import { QueryHistoryView } from './components/QueryHistoryView.js';
+import { RowDetailView } from './components/RowDetailView.js';
+import { RelationshipsView } from './components/RelationshipsView.js';
+import { IndexesView } from './components/IndexesView.js';
 
 const AppContent: React.FC = () => {
   const state = useAppState();
@@ -28,7 +33,14 @@ const AppContent: React.FC = () => {
 
   useInput((input, key) => {
     if (key.escape) {
-      handleGoHome();
+      // Only go home from root level views, not from sub-navigation
+      if (state.currentView === ViewState.Tables ||
+          state.currentView === ViewState.SavedConnections ||
+          state.currentView === ViewState.Connection ||
+          state.currentView === ViewState.DBType) {
+        handleGoHome();
+      }
+      // For other views, let the component's local useInput handle navigation
     }
     if (input === 'h' || input === '?') {
       dispatch({ type: ActionType.SetView, view: ViewState.Help });
@@ -72,6 +84,16 @@ const AppContent: React.FC = () => {
         return <ColumnsView />;
       case ViewState.DataPreview:
         return <DataPreviewView />;
+      case ViewState.Query:
+        return <QueryView />;
+      case ViewState.QueryHistory:
+        return <QueryHistoryView />;
+      case ViewState.RowDetail:
+        return <RowDetailView />;
+      case ViewState.Relationships:
+        return <RelationshipsView />;
+      case ViewState.Indexes:
+        return <IndexesView />;
       case ViewState.Help:
         return (
           <Box flexDirection="column">
@@ -92,7 +114,7 @@ const AppContent: React.FC = () => {
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Text color="cyan" bold>
-        Mirador (Node.js/TypeScript Migration)
+        Mirador
       </Text>
       {state.loading && (
         <Box marginTop={1}>
