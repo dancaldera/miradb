@@ -8,14 +8,8 @@ import { ActionType } from '../state/actions.js';
 interface DBTypeItem {
   label: string;
   value: DBType;
-  description: string;
 }
 
-const DB_TYPE_DESCRIPTIONS: Record<DBType, string> = {
-  [DBType.PostgreSQL]: 'Advanced open-source relational database with rich feature set.',
-  [DBType.MySQL]: 'Popular open-source relational database known for performance.',
-  [DBType.SQLite]: 'Lightweight embedded database stored on disk.'
-};
 
 export const DBTypeView: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -24,8 +18,7 @@ export const DBTypeView: React.FC = () => {
   const items = useMemo<DBTypeItem[]>(() => {
     return Object.values(DBType).map(value => ({
       label: value.toUpperCase(),
-      value,
-      description: DB_TYPE_DESCRIPTIONS[value]
+      value
     }));
   }, []);
 
@@ -42,18 +35,9 @@ export const DBTypeView: React.FC = () => {
       <Text>Select a database engine:</Text>
       <Box marginY={1}>
         <SelectInput
-          items={items.map(({ label, value }) => ({ label, value }))}
+          items={items}
           onSelect={handleSelect}
         />
-      </Box>
-      <Box flexDirection="column">
-        {items.map(item => (
-          <Box key={item.value} marginBottom={1}>
-            <Text color={item.value === state.dbType ? 'cyan' : undefined}>
-              {item.label}: {item.description}
-            </Text>
-          </Box>
-        ))}
       </Box>
     </Box>
   );

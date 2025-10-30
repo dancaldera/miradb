@@ -79,10 +79,8 @@ export const ConnectionView: React.FC = () => {
         />
       </Box>
       <Box marginTop={1} flexDirection="column">
-        <Text dimColor>Examples:</Text>
-        <Text dimColor>- PostgreSQL: postgres://user:pass@host:5432/db</Text>
-        <Text dimColor>- MySQL: mysql://user:pass@host:3306/db</Text>
-        <Text dimColor>- SQLite: /absolute/path/to/file.sqlite</Text>
+        <Text dimColor>Example:</Text>
+        <Text dimColor>- {state.dbType ? state.dbType.toUpperCase() : ''}: {state.dbType ? PLACEHOLDERS[state.dbType] : ''}</Text>
         <Text dimColor>
           Shortcuts: s saved connections{state.savedConnections.length === 0 ? ' (none yet)' : ''} • Esc change database
         </Text>

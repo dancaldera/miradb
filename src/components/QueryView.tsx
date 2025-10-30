@@ -19,7 +19,7 @@ export const QueryView: React.FC = () => {
     if (input === 'r' && !isExecuting) {
       setQueryText('');
     }
-    if (input === 'h' && state.queryHistory.length > 0) {
+    if (input === 'h' && (state.queryHistory?.length ?? 0) > 0) {
       dispatch({ type: ActionType.SetView, view: ViewState.QueryHistory });
     }
   });
@@ -78,10 +78,10 @@ export const QueryView: React.FC = () => {
             </Box>
           )}
 
-          {state.queryHistory.length > 0 && (
+          {(state.queryHistory?.length ?? 0) > 0 && (
             <Box flexDirection="column">
               <Text color="cyan">
-                Query History: {state.queryHistory.length} quer{state.queryHistory.length === 1 ? 'y' : 'ies'}
+                Query History: {state.queryHistory?.length ?? 0} quer{(state.queryHistory?.length ?? 0) === 1 ? 'y' : 'ies'}
               </Text>
               <Text color="gray" dimColor>
                 Press 'h' to view full history

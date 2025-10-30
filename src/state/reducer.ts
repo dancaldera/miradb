@@ -229,7 +229,7 @@ export function appReducer(state: AppState = initialAppState, action: AppAction)
         break;
 
       case ActionType.SetQueryHistory:
-        draft.queryHistory = action.history;
+        draft.queryHistory = action.history || [];
         break;
 
       case ActionType.AddQueryHistoryItem:
