@@ -73,6 +73,8 @@ export interface SortConfig {
   direction: SortDirection;
 }
 
+export type ColumnVisibilityMode = 'smart' | 'all' | 'minimal';
+
 export interface Notification {
   id: string;
   message: string;
@@ -91,6 +93,9 @@ export interface AppState {
   dataRows: DataRow[];
   hasMoreRows: boolean;
   currentOffset: number;
+  selectedRowIndex: number | null;
+  expandedRow: DataRow | null;
+  columnVisibilityMode: ColumnVisibilityMode;
   tableCache: Record<string, TableCacheEntry>;
   refreshingTableKey: string | null;
   refreshTimestamps: Record<string, number>;
@@ -114,6 +119,9 @@ export const initialAppState: AppState = {
   dataRows: [],
   hasMoreRows: false,
   currentOffset: 0,
+  selectedRowIndex: null,
+  expandedRow: null,
+  columnVisibilityMode: 'smart',
   tableCache: {},
   refreshingTableKey: null,
   refreshTimestamps: {},

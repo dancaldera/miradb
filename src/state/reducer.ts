@@ -201,6 +201,8 @@ export function appReducer(state: AppState = initialAppState, action: AppAction)
 
       case ActionType.SetCurrentOffset:
         draft.currentOffset = action.offset;
+        draft.selectedRowIndex = null;
+        draft.expandedRow = null;
         {
           const key = tableCacheKey(draft.selectedTable);
           if (key) {
@@ -214,6 +216,19 @@ export function appReducer(state: AppState = initialAppState, action: AppAction)
             draft.tableCache[key] = cache;
           }
         }
+        break;
+
+      case ActionType.SetSelectedRowIndex:
+        draft.selectedRowIndex = action.index;
+        draft.expandedRow = null;
+        break;
+
+      case ActionType.SetExpandedRow:
+        draft.expandedRow = action.row;
+        break;
+
+      case ActionType.SetColumnVisibilityMode:
+        draft.columnVisibilityMode = action.mode;
         break;
 
       case ActionType.SetRefreshTimestamp:

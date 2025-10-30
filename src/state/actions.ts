@@ -1,4 +1,4 @@
-import { ColumnInfo, ConnectionInfo, DataRow, DBType, Notification, QueryHistoryItem, SortConfig, TableCacheEntry, TableInfo, ViewState } from '../types/state.js';
+import { ColumnInfo, ColumnVisibilityMode, ConnectionInfo, DataRow, DBType, Notification, QueryHistoryItem, SortConfig, TableCacheEntry, TableInfo, ViewState } from '../types/state.js';
 import type { DatabaseError } from '../database/errors.js';
 
 export enum ActionType {
@@ -23,6 +23,9 @@ export enum ActionType {
   SetDataRows = 'SET_DATA_ROWS',
   SetHasMoreRows = 'SET_HAS_MORE_ROWS',
   SetCurrentOffset = 'SET_CURRENT_OFFSET',
+  SetSelectedRowIndex = 'SET_SELECTED_ROW_INDEX',
+  SetExpandedRow = 'SET_EXPANDED_ROW',
+  SetColumnVisibilityMode = 'SET_COLUMN_VISIBILITY_MODE',
   SetTableCache = 'SET_TABLE_CACHE',
   RemoveTableCacheEntry = 'REMOVE_TABLE_CACHE_ENTRY',
   SetRefreshingTable = 'SET_REFRESHING_TABLE',
@@ -58,6 +61,9 @@ export type AppAction =
   | { type: ActionType.SetDataRows; rows: DataRow[] }
   | { type: ActionType.SetHasMoreRows; hasMore: boolean }
   | { type: ActionType.SetCurrentOffset; offset: number }
+  | { type: ActionType.SetSelectedRowIndex; index: number | null }
+  | { type: ActionType.SetExpandedRow; row: DataRow | null }
+  | { type: ActionType.SetColumnVisibilityMode; mode: ColumnVisibilityMode }
   | { type: ActionType.SetTableCache; cache: Record<string, TableCacheEntry> }
   | { type: ActionType.RemoveTableCacheEntry; key: string }
   | { type: ActionType.SetRefreshingTable; key: string | null }

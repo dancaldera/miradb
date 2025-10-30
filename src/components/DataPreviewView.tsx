@@ -4,10 +4,12 @@ import { useAppDispatch, useAppState } from '../state/context.js';
 import { clearConnectionCache, clearTableCacheEntry, exportTableData, fetchColumns, fetchTableData } from '../state/effects.js';
 import { ViewState } from '../types/state.js';
 import { ActionType } from '../state/actions.js';
-import type { ColumnInfo, TableInfo } from '../types/state.js';
+import type { ColumnInfo, DataRow, TableInfo } from '../types/state.js';
 import { tableCacheKey } from '../state/cache.js';
 import { processRows, formatValueForDisplay, truncateString, calculateColumnWidth } from '../utils/data-processing.js';
 import { copyToClipboard, formatTableForClipboard } from '../utils/clipboard.js';
+import { getColorForDataType, formatValueWithTruncation, getHeaderColor } from '../utils/color-mapping.js';
+import { selectVisibleColumns, getColumnDisplayWidth, getVisibilityModeLabel, getNextVisibilityMode } from '../utils/column-selection.js';
 
 const PAGE_SIZE = 50;
 
@@ -51,11 +53,58 @@ export const DataPreviewView: React.FC = () => {
       return;
     }
 
-    if (key.leftArrow || input === 'b') {
-      dispatch({ type: ActionType.ClearSelectedTable });
-      dispatch({ type: ActionType.SetView, view: ViewState.Tables });
+    // Handle expanded row view first
+    if (state.expandedRow) {
+      if (key.escape || input === 'q' || input === 'b') {
+        dispatch({ type: ActionType.SetExpandedRow, row: null });
+      }
+      return;
     }
 
+    // Navigation between views
+    if (key.escape || input === 'b') {
+      dispatch({ type: ActionType.ClearSelectedTable });
+      dispatch({ type: ActionType.SetView, view: ViewState.Tables });
+      return;
+    }
+
+    // Row selection with up/down arrows
+    if (key.upArrow) {
+      if (state.selectedRowIndex === null || state.selectedRowIndex === 0) {
+        dispatch({ type: ActionType.SetSelectedRowIndex, index: rowsToDisplay.length - 1 });
+      } else {
+        dispatch({ type: ActionType.SetSelectedRowIndex, index: state.selectedRowIndex - 1 });
+      }
+      return;
+    }
+
+    if (key.downArrow) {
+      if (state.selectedRowIndex === null) {
+        dispatch({ type: ActionType.SetSelectedRowIndex, index: 0 });
+      } else if (state.selectedRowIndex >= rowsToDisplay.length - 1) {
+        dispatch({ type: ActionType.SetSelectedRowIndex, index: 0 });
+      } else {
+        dispatch({ type: ActionType.SetSelectedRowIndex, index: state.selectedRowIndex + 1 });
+      }
+      return;
+    }
+
+    // Enter key to expand selected row
+    if (key.return && state.selectedRowIndex !== null && rowsToDisplay[state.selectedRowIndex]) {
+      dispatch({ type: ActionType.SetExpandedRow, row: rowsToDisplay[state.selectedRowIndex] });
+      return;
+    }
+
+    // Home key to jump to first page (if supported by terminal)
+    if ('home' in key && (key as Record<string, unknown>).home && state.currentOffset > 0 && !state.loading) {
+      void fetchTableData(dispatch, state, {
+        type: state.dbType,
+        connectionString: state.activeConnection.connectionString
+      }, table, { offset: 0, limit: PAGE_SIZE });
+      return;
+    }
+
+    // Pagination - previous page
     if ((input === 'p' || input === 'P') && state.currentOffset > 0 && !state.loading) {
       const previousOffset = Math.max(0, state.currentOffset - PAGE_SIZE);
       void fetchTableData(dispatch, state, {
@@ -152,6 +201,16 @@ export const DataPreviewView: React.FC = () => {
       });
     }
 
+    // Column visibility toggle
+    if (input === 'v') {
+      const nextMode = getNextVisibilityMode(state.columnVisibilityMode);
+      dispatch({
+        type: ActionType.SetColumnVisibilityMode,
+        mode: nextMode
+      });
+      return;
+    }
+
     // Filtering shortcuts
     if (input === 'f') {
       // This would require a more complex input dialog
@@ -205,50 +264,47 @@ export const DataPreviewView: React.FC = () => {
 
   const rowsToDisplay = processedRows;
 
+  // Select visible columns based on visibility mode
+  const visibleColumns = useMemo(() => {
+    return selectVisibleColumns(state.columns, state.columnVisibilityMode, 5);
+  }, [state.columns, state.columnVisibilityMode]);
+
   const totalLoaded = state.currentOffset + processedRows.length;
   const cacheKey = tableCacheKey(table);
   const cacheEntry = cacheKey ? state.tableCache[cacheKey] : undefined;
   const statusMessage = useMemo(() => {
     const currentPage = Math.floor(state.currentOffset / PAGE_SIZE) + 1;
-    const moreRowsText = state.hasMoreRows ? 'More rows available' : 'End of results';
-    const prevText = state.currentOffset > 0 ? 'p previous page' : 'prev unavailable';
-    const nextText = state.hasMoreRows ? 'n next page' : 'next unavailable';
-    const cacheText = cacheEntry ? (cacheEntry.rows.length > 0 ? 'cache warm' : 'cache metadata') : 'cache empty';
+    const startRow = state.currentOffset + 1;
+    const endRow = state.currentOffset + rowsToDisplay.length;
 
-    let sortText = '';
+    const parts: string[] = [];
+
+    // Row range display
+    parts.push(`Showing rows ${startRow}-${endRow}`);
+
+    // Page number
+    parts.push(`Page ${currentPage}`);
+
+    // More rows indicator
+    if (state.hasMoreRows) {
+      parts.push('More available');
+    } else {
+      parts.push('End reached');
+    }
+
+    // Sort status
     if (state.sortConfig.column && state.sortConfig.direction !== 'off') {
-      sortText = `Sorted by ${state.sortConfig.column} (${state.sortConfig.direction})`;
+      const arrow = state.sortConfig.direction === 'asc' ? '↑' : '↓';
+      parts.push(`Sort: ${state.sortConfig.column} ${arrow}`);
     }
 
-    let filterText = '';
+    // Filter status
     if (state.filterValue) {
-      filterText = `Filtered: "${state.filterValue}"`;
+      parts.push(`Filter: "${state.filterValue}"`);
     }
-
-    const parts = [
-      `Rows: ${rowsToDisplay.length}${state.filterValue ? `/${state.dataRows.length}` : ''} loaded`,
-      `Page: ${currentPage}`,
-      moreRowsText,
-      cacheText,
-      sortText,
-      filterText,
-      `Controls: ←/b back, ${prevText}, ${nextText}, s sort, S clear sort, f clear filter, r refresh, c clear cache, g clear all`
-    ].filter(Boolean);
 
     return parts.join(' • ');
-  }, [cacheEntry, state.currentOffset, state.hasMoreRows, totalLoaded, rowsToDisplay.length, state.dataRows.length, state.sortConfig, state.filterValue]);
-
-  const columnSummary = useMemo(() => {
-    if (state.columns.length === 0) {
-      return <Text dimColor>Loading column metadata…</Text>;
-    }
-
-    return state.columns.map(column => (
-      <Text key={column.name} color={column.isPrimaryKey ? 'yellow' : undefined}>
-        {renderColumnSummary(column)}
-      </Text>
-    ));
-  }, [state.columns]);
+  }, [state.currentOffset, state.hasMoreRows, rowsToDisplay.length, state.sortConfig, state.filterValue]);
 
   if (!table) {
     return (
@@ -258,37 +314,65 @@ export const DataPreviewView: React.FC = () => {
     );
   }
 
+  // Show expanded row view if a row is expanded
+  if (state.expandedRow && state.columns.length > 0) {
+    return (
+      <Box flexDirection="column">
+        <Text>
+          <Text color="cyan">{renderTableName(table)}</Text> • Row Details
+        </Text>
+        <Box marginTop={1}>
+          {renderExpandedRow(state.expandedRow, state.columns)}
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="column">
-      <Text>
-        Previewing <Text color="cyan">{renderTableName(table)}</Text>
-      </Text>
-      {state.refreshingTableKey === cacheKey && (
-        <Text color="yellow">Refreshing data…</Text>
-      )}
-      <Box marginTop={1} flexDirection="column">
-        {columnSummary}
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text>
+          <Text color="cyan" bold>{renderTableName(table)}</Text>
+          {state.loading && <Text color="yellow"> • Loading…</Text>}
+          {state.refreshingTableKey === cacheKey && <Text color="yellow"> • Refreshing…</Text>}
+        </Text>
+        <Text dimColor> {statusMessage}</Text>
       </Box>
+
+      {/* View mode indicator */}
+      <Box marginTop={1}>
+        <Text dimColor>
+          [{getVisibilityModeLabel(state.columnVisibilityMode)}] {visibleColumns.length === state.columns.length ? 'All' : visibleColumns.length} of {state.columns.length} columns
+        </Text>
+      </Box>
+
+      {/* Table header row */}
+      {visibleColumns.length > 0 && (
+        <Box marginTop={1} flexDirection="column">
+          {renderHeaderRow(visibleColumns, state.sortConfig)}
+          <Text dimColor>{'─'.repeat(80)}</Text>
+        </Box>
+      )}
+
+      {/* Data rows */}
       <Box marginTop={1} flexDirection="column">
         {rowsToDisplay.length === 0 ? (
-          <Text dimColor>No rows loaded yet.</Text>
+          <Text dimColor>
+            {state.loading ? 'Loading rows…' : 'No rows available.'}
+          </Text>
         ) : (
           rowsToDisplay.map((row, index) => (
-            <Text key={index}>
-              {formatRow(row, state.columns)}
-            </Text>
+            <Box key={index}>
+              {renderCondensedRow(row, visibleColumns, index === state.selectedRowIndex)}
+            </Box>
           ))
         )}
       </Box>
-      <Box marginTop={1}>
-        <Text dimColor>
-          {statusMessage}
-          {state.loading ? ' Loading…' : ''}
-        </Text>
-      </Box>
+
+      {/* Help text */}
       <Box marginTop={1}>
         <Text color="gray" dimColor>
-          ←/b: Back | p/n: Previous/Next page | s: Sort | S: Clear sort | f: Clear filter | e: Export CSV | E: Export JSON | Ctrl+C: Copy | r: Refresh | c: Clear cache | d: Row details | q: Query
+          ↑↓: Select | Enter: Expand | v: Toggle columns | p/n: Prev/Next | s: Sort | r: Refresh | Esc: Back
         </Text>
       </Box>
     </Box>
@@ -299,42 +383,113 @@ function renderTableName(table: TableInfo): string {
   return table.schema ? `${table.schema}.${table.name}` : table.name;
 }
 
-function renderColumnSummary(column: ColumnInfo): string {
-  const parts = [
-    column.name,
-    `type=${column.dataType}`,
-    column.nullable ? 'nullable' : 'NOT NULL'
-  ];
-
-  if (column.isPrimaryKey) {
-    parts.push('[PK]');
-  }
-  if (column.isForeignKey && column.foreignTable && column.foreignColumn) {
-    parts.push(`[FK → ${column.foreignTable}.${column.foreignColumn}]`);
-  }
-
-  return parts.join(' • ');
-}
-
-function formatRow(row: Record<string, unknown>, columns: { name: string }[]): string {
+/**
+ * Render a condensed row with colored values based on data types
+ */
+function renderCondensedRow(
+  row: DataRow,
+  columns: ColumnInfo[],
+  isSelected: boolean
+): React.ReactElement {
   if (columns.length === 0) {
-    return JSON.stringify(row);
+    return <Text>{JSON.stringify(row)}</Text>;
   }
 
-  const parts = columns.map(column => {
+  const parts: React.ReactElement[] = [];
+
+  // Selection indicator
+  if (isSelected) {
+    parts.push(<Text key="indicator" color="cyan" bold>▶ </Text>);
+  } else {
+    parts.push(<Text key="indicator">  </Text>);
+  }
+
+  // Render each column value with appropriate color and dynamic width
+  columns.forEach((column, idx) => {
     const value = row[column.name];
-    return `${column.name}=${stringifyValue(value)}`;
+    const color = getColorForDataType(column.dataType, value);
+    const width = getColumnDisplayWidth(column);
+    const formattedValue = formatValueWithTruncation(value, width);
+
+    if (idx > 0) {
+      parts.push(<Text key={`sep-${idx}`} dimColor> | </Text>);
+    }
+
+    parts.push(
+      <Text key={`col-${idx}`} color={color} dimColor={value === null || value === undefined}>
+        {formattedValue}
+      </Text>
+    );
   });
 
-  return parts.join(' | ');
+  return <Text>{parts}</Text>;
 }
 
-function stringifyValue(value: unknown): string {
-  if (value === null || value === undefined) {
-    return 'NULL';
-  }
-  if (typeof value === 'object') {
-    return JSON.stringify(value);
-  }
-  return String(value);
+/**
+ * Render column header row
+ */
+function renderHeaderRow(columns: ColumnInfo[], sortConfig: { column: string | null; direction: 'asc' | 'desc' | 'off' }): React.ReactElement {
+  const parts: React.ReactElement[] = [];
+
+  parts.push(<Text key="indicator">  </Text>);
+
+  columns.forEach((column, idx) => {
+    if (idx > 0) {
+      parts.push(<Text key={`sep-${idx}`} dimColor> | </Text>);
+    }
+
+    const width = getColumnDisplayWidth(column);
+    let columnText = formatValueWithTruncation(column.name.toUpperCase(), width);
+
+    // Add sort indicator
+    if (sortConfig.column === column.name) {
+      if (sortConfig.direction === 'asc') {
+        columnText += ' ↑';
+      } else if (sortConfig.direction === 'desc') {
+        columnText += ' ↓';
+      }
+    }
+
+    parts.push(
+      <Text key={`col-${idx}`} color={getHeaderColor()} bold>
+        {columnText}
+      </Text>
+    );
+  });
+
+  return <Text>{parts}</Text>;
+}
+
+/**
+ * Render expanded row view with full details
+ */
+function renderExpandedRow(row: DataRow, columns: ColumnInfo[]): React.ReactElement {
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
+      <Text bold color="cyan">Row Details</Text>
+      <Text dimColor>─────────────────────────────────────────────────────────────</Text>
+      <Box flexDirection="column" marginY={1}>
+        {columns.map(column => {
+          const value = row[column.name];
+          const color = getColorForDataType(column.dataType, value);
+          const formattedValue = value === null || value === undefined
+            ? 'NULL'
+            : typeof value === 'object'
+              ? JSON.stringify(value, null, 2)
+              : String(value);
+
+          return (
+            <Box key={column.name} flexDirection="row">
+              <Text bold color="cyan" dimColor>{column.name}: </Text>
+              <Text color={color} dimColor={value === null || value === undefined}>
+                {formattedValue}
+              </Text>
+            </Box>
+          );
+        })}
+      </Box>
+      <Text dimColor>─────────────────────────────────────────────────────────────</Text>
+      <Text dimColor>Esc/q/b: Close</Text>
+    </Box>
+  );
 }
