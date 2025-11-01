@@ -23,12 +23,13 @@ import {
 	getHeaderColor,
 	getPrimaryKeyHeaderColor,
 } from "../utils/color-mapping.js";
-import { calculateTableWidth, formatColumnList, getColumnDisplayWidth } from "../utils/column-selection.js";
-import { processRows } from "../utils/data-processing.js";
 import {
-	getFixedPKColumns,
-	getNavigableColumns,
-} from "../utils/pk-utils.js";
+	calculateTableWidth,
+	formatColumnList,
+	getColumnDisplayWidth,
+} from "../utils/column-selection.js";
+import { processRows } from "../utils/data-processing.js";
+import { getFixedPKColumns, getNavigableColumns } from "../utils/pk-utils.js";
 
 const PAGE_SIZE = 50;
 const FALLBACK_TOTAL_VISIBLE_COLUMNS = 5;
@@ -107,11 +108,7 @@ export const DataPreviewView: React.FC = () => {
 
 		const selected: ColumnInfo[] = [];
 
-		for (
-			let idx = columnStartIndex;
-			idx < navigableColumns.length;
-			idx += 1
-		) {
+		for (let idx = columnStartIndex; idx < navigableColumns.length; idx += 1) {
 			const candidateColumn = navigableColumns[idx];
 			const candidateColumns = [
 				...fixedPKColumns,
@@ -335,6 +332,7 @@ export const DataPreviewView: React.FC = () => {
 				type: ActionType.SetExpandedRow,
 				row: rowsToDisplay[state.selectedRowIndex],
 			});
+			dispatch({ type: ActionType.SetView, view: ViewState.RowDetail });
 			return;
 		}
 
@@ -424,6 +422,13 @@ export const DataPreviewView: React.FC = () => {
 		}
 
 		if (input === "d" && state.dataRows.length > 0) {
+			dispatch({
+				type: ActionType.SetExpandedRow,
+				row:
+					state.selectedRowIndex !== null
+						? (rowsToDisplay[state.selectedRowIndex] ?? null)
+						: (rowsToDisplay[0] ?? null),
+			});
 			dispatch({ type: ActionType.SetView, view: ViewState.RowDetail });
 		}
 
@@ -485,10 +490,7 @@ export const DataPreviewView: React.FC = () => {
 		}
 
 		// Column navigation with arrow keys (only for navigable columns, PK columns stay fixed)
-		if (
-			key.leftArrow &&
-			columnStartIndex > 0
-		) {
+		if (key.leftArrow && columnStartIndex > 0) {
 			setColumnStartIndex(Math.max(0, columnStartIndex - 1));
 			return;
 		}
@@ -517,10 +519,7 @@ export const DataPreviewView: React.FC = () => {
 			navigableColumns.length > visibleNavigableColumns.length
 		) {
 			setColumnStartIndex(
-				Math.max(
-					0,
-					navigableColumns.length - visibleNavigableColumns.length,
-				),
+				Math.max(0, navigableColumns.length - visibleNavigableColumns.length),
 			);
 			return;
 		}
@@ -612,32 +611,8 @@ export const DataPreviewView: React.FC = () => {
 				</Box>
 			)}
 
-				{/* Table header row */}
-				{visibleColumns.length > 0 && (
-					<Box
-						flexDirection="column"
-						borderStyle="single"
-						borderColor="gray"
-						paddingX={0}
-						width={tableBoxWidth}
-					>
-						{renderHeaderRow(
-							visibleColumns,
-							columnWidths,
-							state.sortConfig,
-							columnStartIndex,
-							fixedPKColumns.length,
-						)}
-						<Text dimColor>
-							{renderSeparatorLine(
-								columnWidths,
-								widthLimit ? Math.max(widthLimit - BORDER_WIDTH, 0) : undefined,
-							)}
-						</Text>
-					</Box>
-				)}
-
-				{/* Data rows */}
+			{/* Table header row */}
+			{visibleColumns.length > 0 && (
 				<Box
 					flexDirection="column"
 					borderStyle="single"
@@ -645,25 +620,49 @@ export const DataPreviewView: React.FC = () => {
 					paddingX={0}
 					width={tableBoxWidth}
 				>
-					{rowsToDisplay.length === 0 ? (
-						<Text dimColor>
-							{state.loading ? "Loading rows…" : "No rows available."}
-						</Text>
-					) : (
-						rowsToDisplay.map((row, index) => (
-							<Box key={index}>
-								{renderCondensedRow(
-									row,
-									visibleColumns,
-									columnWidths,
-									index === state.selectedRowIndex,
-									columnStartIndex,
-									fixedPKColumns.length,
-								)}
-							</Box>
-						))
+					{renderHeaderRow(
+						visibleColumns,
+						columnWidths,
+						state.sortConfig,
+						columnStartIndex,
+						fixedPKColumns.length,
 					)}
+					<Text dimColor>
+						{renderSeparatorLine(
+							columnWidths,
+							widthLimit ? Math.max(widthLimit - BORDER_WIDTH, 0) : undefined,
+						)}
+					</Text>
 				</Box>
+			)}
+
+			{/* Data rows */}
+			<Box
+				flexDirection="column"
+				borderStyle="single"
+				borderColor="gray"
+				paddingX={0}
+				width={tableBoxWidth}
+			>
+				{rowsToDisplay.length === 0 ? (
+					<Text dimColor>
+						{state.loading ? "Loading rows…" : "No rows available."}
+					</Text>
+				) : (
+					rowsToDisplay.map((row, index) => (
+						<Box key={index}>
+							{renderCondensedRow(
+								row,
+								visibleColumns,
+								columnWidths,
+								index === state.selectedRowIndex,
+								columnStartIndex,
+								fixedPKColumns.length,
+							)}
+						</Box>
+					))
+				)}
+			</Box>
 
 			{/* Help text */}
 			<Box marginTop={1}>
@@ -696,16 +695,26 @@ function renderCondensedRow(
 	}
 
 	const parts: React.ReactElement[] = [];
+	const rowBackgroundColor = isSelected ? ("#014f4f" as const) : undefined;
 
 	// Selection indicator
 	if (isSelected) {
 		parts.push(
-			<Text key="indicator" color="cyan" bold>
+			<Text
+				key="indicator"
+				color="cyan"
+				bold
+				backgroundColor={rowBackgroundColor}
+			>
 				▶{" "}
 			</Text>,
 		);
 	} else {
-		parts.push(<Text key="indicator">{" ".repeat(INDICATOR_WIDTH)}</Text>);
+		parts.push(
+			<Text key="indicator" backgroundColor={rowBackgroundColor}>
+				{" ".repeat(INDICATOR_WIDTH)}
+			</Text>,
+		);
 	}
 
 	// Render each column value with appropriate color and dynamic width
@@ -722,6 +731,7 @@ function renderCondensedRow(
 					key={`sep-${idx}`}
 					color={isPKSeparator ? "yellow" : undefined}
 					dimColor={!isPKSeparator}
+					backgroundColor={rowBackgroundColor}
 				>
 					{isPKSeparator ? "‖" : "|"}
 				</Text>,
@@ -750,6 +760,7 @@ function renderCondensedRow(
 				color={finalColor}
 				bold={isSelectedColumn}
 				dimColor={value === null || (value === undefined && !isSelectedColumn)}
+				backgroundColor={rowBackgroundColor}
 			>
 				{formattedValue}
 			</Text>,
@@ -961,7 +972,8 @@ function formatDataCell(value: unknown, width: number): string {
 	} else {
 		text = String(value);
 	}
-	return truncateToWidth(text, width);
+	const truncated = truncateToWidth(text, width);
+	return truncated.padEnd(width, " ");
 }
 
 function formatHeaderCell(
@@ -983,6 +995,6 @@ function formatHeaderCell(
 		}
 	}
 
-	// Maintain previous visual emphasis via coloring; padding handled here
-	return truncateToWidth(label, width);
+	const truncated = truncateToWidth(label, width);
+	return truncated.padEnd(width, " ");
 }
