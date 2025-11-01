@@ -42,7 +42,11 @@ const AppContent: React.FC = () => {
       }
       // For other views, let the component's local useInput handle navigation
     }
-    if (input === 'h' || input === '?') {
+    // Only handle 'h' for help when not in QueryView or TablesView
+    // (QueryView handles 'h' for history in command mode, TablesView handles 'h' for history too)
+    if ((input === 'h' || input === '?') &&
+        state.currentView !== ViewState.Query &&
+        state.currentView !== ViewState.Tables) {
       dispatch({ type: ActionType.SetView, view: ViewState.Help });
     }
   });

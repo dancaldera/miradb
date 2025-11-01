@@ -20,7 +20,7 @@ export const TablesView: React.FC = () => {
     if (input === 'q' && state.activeConnection) {
       dispatch({ type: ActionType.SetView, view: ViewState.Query });
     }
-    if (input === 'h' && state.queryHistory.length > 0) {
+    if (input === 'h' && (state.queryHistory?.length ?? 0) > 0) {
       dispatch({ type: ActionType.SetView, view: ViewState.QueryHistory });
     }
     if (input === 's') {

@@ -17,12 +17,13 @@ interface Index {
 }
 
 export const IndexesView: React.FC = () => {
-  const { state, dispatch } = useAppState();
+  const state = useAppState();
+  const dispatch = useAppDispatch();
   const [indexes, setIndexes] = useState<Index[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!state.activeConnection || !state.dbType || !state.selectedTable) {
+    if (!state?.activeConnection || !state?.dbType || !state?.selectedTable) {
       return;
     }
 
@@ -151,7 +152,7 @@ export const IndexesView: React.FC = () => {
     };
 
     fetchIndexes();
-  }, [state.activeConnection, state.dbType, state.selectedTable, dispatch]);
+  }, [state?.activeConnection, state?.dbType, state?.selectedTable, dispatch]);
 
   const primaryKeys = indexes.filter(i => i.isPrimary);
   const uniqueIndexes = indexes.filter(i => i.isUnique && !i.isPrimary);
@@ -160,104 +161,95 @@ export const IndexesView: React.FC = () => {
   return (
     <ViewBuilder
       title="Table Indexes"
-      subtitle={`Table: ${state.selectedTable || 'Unknown'}`}
-      content={
-        loading ? (
-          <Text color="yellow">Loading indexes...</Text>
-        ) : (
-          <Box flexDirection="column">
-            {indexes.length === 0 ? (
-              <Box flexDirection="column">
-                <Text color="gray">No indexes found for this table.</Text>
-                <Text color="gray">This table might not have any indexes defined.</Text>
-              </Box>
-            ) : (
-              <>
-                {primaryKeys.length > 0 && (
-                  <Box flexDirection="column" marginBottom={2}>
-                    <Text color="green" bold>Primary Key Indexes ({primaryKeys.length}):</Text>
-                    {primaryKeys.map((index, indexIndex) => (
-                      <Box key={index.name || indexIndex} flexDirection="column" paddingX={1}>
-                        <Text color="green">
-                          {index.name}
-                        </Text>
-                        <Text color="white">
-                          Columns: {index.columns.join(', ')}
-                        </Text>
-                        {index.type && (
-                          <Text color="gray" dimColor>
-                            Type: {index.type}
-                          </Text>
-                        )}
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-
-                {uniqueIndexes.length > 0 && (
-                  <Box flexDirection="column" marginBottom={2}>
-                    <Text color="blue" bold>Unique Indexes ({uniqueIndexes.length}):</Text>
-                    {uniqueIndexes.map((index, indexIndex) => (
-                      <Box key={index.name || indexIndex} flexDirection="column" paddingX={1}>
-                        <Text color="blue">
-                          {index.name}
-                        </Text>
-                        <Text color="white">
-                          Columns: {index.columns.join(', ')}
-                        </Text>
-                        {index.type && (
-                          <Text color="gray" dimColor>
-                            Type: {index.type}
-                          </Text>
-                        )}
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-
-                {nonUniqueIndexes.length > 0 && (
-                  <Box flexDirection="column" marginBottom={2}>
-                    <Text color="yellow" bold>Non-Unique Indexes ({nonUniqueIndexes.length}):</Text>
-                    {nonUniqueIndexes.map((index, indexIndex) => (
-                      <Box key={index.name || indexIndex} flexDirection="column" paddingX={1}>
-                        <Text color="yellow">
-                          {index.name}
-                        </Text>
-                        <Text color="white">
-                          Columns: {index.columns.join(', ')}
-                        </Text>
-                        {index.type && (
-                          <Text color="gray" dimColor>
-                            Type: {index.type}
-                          </Text>
-                        )}
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-              </>
-            )}
-
-            <Box marginTop={1}>
-              <Text color="gray" dimColor>
-                Total indexes: {indexes.length}
-              </Text>
-              <Text color="gray" dimColor>
-                Primary: {primaryKeys.length} • Unique: {uniqueIndexes.length} • Non-unique: {nonUniqueIndexes.length}
-              </Text>
+      subtitle={`Table: ${state?.selectedTable || 'Unknown'}`}
+      footer="Esc: Back to table view"
+    >
+      {loading ? (
+        <Text color="yellow">Loading indexes...</Text>
+      ) : (
+        <Box flexDirection="column">
+          {indexes.length === 0 ? (
+            <Box flexDirection="column">
+              <Text color="gray">No indexes found for this table.</Text>
+              <Text color="gray">This table might not have any indexes defined.</Text>
             </Box>
+          ) : (
+            <>
+              {primaryKeys.length > 0 && (
+                <Box flexDirection="column" marginBottom={2}>
+                  <Text color="green" bold>Primary Key Indexes ({primaryKeys.length}):</Text>
+                  {primaryKeys.map((index, indexIndex) => (
+                    <Box key={index.name || indexIndex} flexDirection="column" paddingX={1}>
+                      <Text color="green">
+                        {index.name}
+                      </Text>
+                      <Text color="white">
+                        Columns: {index.columns.join(', ')}
+                      </Text>
+                      {index.type && (
+                        <Text color="gray" dimColor>
+                          Type: {index.type}
+                        </Text>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
+              {uniqueIndexes.length > 0 && (
+                <Box flexDirection="column" marginBottom={2}>
+                  <Text color="blue" bold>Unique Indexes ({uniqueIndexes.length}):</Text>
+                  {uniqueIndexes.map((index, indexIndex) => (
+                    <Box key={index.name || indexIndex} flexDirection="column" paddingX={1}>
+                      <Text color="blue">
+                        {index.name}
+                      </Text>
+                      <Text color="white">
+                        Columns: {index.columns.join(', ')}
+                      </Text>
+                      {index.type && (
+                        <Text color="gray" dimColor>
+                          Type: {index.type}
+                        </Text>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
+              {nonUniqueIndexes.length > 0 && (
+                <Box flexDirection="column" marginBottom={2}>
+                  <Text color="yellow" bold>Non-Unique Indexes ({nonUniqueIndexes.length}):</Text>
+                  {nonUniqueIndexes.map((index, indexIndex) => (
+                    <Box key={index.name || indexIndex} flexDirection="column" paddingX={1}>
+                      <Text color="yellow">
+                        {index.name}
+                      </Text>
+                      <Text color="white">
+                        Columns: {index.columns.join(', ')}
+                      </Text>
+                      {index.type && (
+                        <Text color="gray" dimColor>
+                          Type: {index.type}
+                        </Text>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </>
+          )}
+
+          <Box marginTop={1}>
+            <Text color="gray" dimColor>
+              Total indexes: {indexes.length}
+            </Text>
+            <Text color="gray" dimColor>
+              Primary: {primaryKeys.length} • Unique: {uniqueIndexes.length} • Non-unique: {nonUniqueIndexes.length}
+            </Text>
           </Box>
-        )
-      }
-      helpText={`
-Table Indexes Help:
-• Shows all indexes defined on this table
-• Primary key indexes enforce uniqueness and identify rows
-• Unique indexes prevent duplicate values in indexed columns
-• Non-unique indexes improve query performance
-• Index types vary by database (B-tree, Hash, etc.)
-• Press Esc to go back to table view
-              `.trim()}
-    />
+        </Box>
+      )}
+    </ViewBuilder>
   );
 };

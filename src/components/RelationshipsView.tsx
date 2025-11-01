@@ -17,12 +17,13 @@ interface Relationship {
 }
 
 export const RelationshipsView: React.FC = () => {
-  const { state, dispatch } = useAppState();
+  const state = useAppState();
+  const dispatch = useAppDispatch();
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!state.activeConnection || !state.dbType || !state.selectedTable) {
+    if (!state?.activeConnection || !state?.dbType || !state?.selectedTable) {
       return;
     }
 
@@ -128,7 +129,7 @@ export const RelationshipsView: React.FC = () => {
     };
 
     fetchRelationships();
-  }, [state.activeConnection, state.dbType, state.selectedTable, dispatch]);
+  }, [state?.activeConnection, state?.dbType, state?.selectedTable, dispatch]);
 
   const foreignKeys = relationships.filter(r => r.constraintType === 'FOREIGN KEY');
   const primaryKeys = relationships.filter(r => r.constraintType === 'PRIMARY KEY');
@@ -138,84 +139,76 @@ export const RelationshipsView: React.FC = () => {
     <ViewBuilder
       title="Table Relationships"
       subtitle={`Table: ${state.selectedTable || 'Unknown'}`}
-      content={
-        loading ? (
-          <Text color="yellow">Loading relationships...</Text>
-        ) : (
-          <Box flexDirection="column">
-            {foreignKeys.length === 0 && primaryKeys.length === 0 && uniqueConstraints.length === 0 ? (
-              <Box flexDirection="column">
-                <Text color="gray">No relationships found for this table.</Text>
-                <Text color="gray">This table might not have any foreign keys or constraints defined.</Text>
-              </Box>
-            ) : (
-              <>
-                {foreignKeys.length > 0 && (
-                  <Box flexDirection="column" marginBottom={2}>
-                    <Text color="cyan" bold>Foreign Keys ({foreignKeys.length}):</Text>
-                    {foreignKeys.map((fk, index) => (
-                      <Box key={fk.constraintName || index} flexDirection="column" paddingX={1}>
-                        <Text color="yellow">
-                          {fk.sourceColumn} → {fk.targetTable}.{fk.targetColumn}
-                        </Text>
-                        <Text color="gray" dimColor>
-                          Constraint: {fk.constraintName}
-                        </Text>
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-
-                {primaryKeys.length > 0 && (
-                  <Box flexDirection="column" marginBottom={2}>
-                    <Text color="green" bold>Primary Keys ({primaryKeys.length}):</Text>
-                    {primaryKeys.map((pk, index) => (
-                      <Box key={pk.constraintName || index} flexDirection="column" paddingX={1}>
-                        <Text color="green">
-                          {pk.sourceColumn}
-                        </Text>
-                        <Text color="gray" dimColor>
-                          Constraint: {pk.constraintName}
-                        </Text>
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-
-                {uniqueConstraints.length > 0 && (
-                  <Box flexDirection="column" marginBottom={2}>
-                    <Text color="blue" bold>Unique Constraints ({uniqueConstraints.length}):</Text>
-                    {uniqueConstraints.map((uc, index) => (
-                      <Box key={uc.constraintName || index} flexDirection="column" paddingX={1}>
-                        <Text color="blue">
-                          {uc.sourceColumn}
-                        </Text>
-                        <Text color="gray" dimColor>
-                          Constraint: {uc.constraintName}
-                        </Text>
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-              </>
-            )}
-
-            <Box marginTop={1}>
-              <Text color="gray" dimColor>
-                Total relationships: {relationships.length}
-              </Text>
+      footer="Esc: Back to table view"
+    >
+      {loading ? (
+        <Text color="yellow">Loading relationships...</Text>
+      ) : (
+        <Box flexDirection="column">
+          {foreignKeys.length === 0 && primaryKeys.length === 0 && uniqueConstraints.length === 0 ? (
+            <Box flexDirection="column">
+              <Text color="gray">No relationships found for this table.</Text>
+              <Text color="gray">This table might not have any foreign keys or constraints defined.</Text>
             </Box>
+          ) : (
+            <>
+              {foreignKeys.length > 0 && (
+                <Box flexDirection="column" marginBottom={2}>
+                  <Text color="cyan" bold>Foreign Keys ({foreignKeys.length}):</Text>
+                  {foreignKeys.map((fk, index) => (
+                    <Box key={fk.constraintName || index} flexDirection="column" paddingX={1}>
+                      <Text color="yellow">
+                        {fk.sourceColumn} → {fk.targetTable}.{fk.targetColumn}
+                      </Text>
+                      <Text color="gray" dimColor>
+                        Constraint: {fk.constraintName}
+                      </Text>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
+              {primaryKeys.length > 0 && (
+                <Box flexDirection="column" marginBottom={2}>
+                  <Text color="green" bold>Primary Keys ({primaryKeys.length}):</Text>
+                  {primaryKeys.map((pk, index) => (
+                    <Box key={pk.constraintName || index} flexDirection="column" paddingX={1}>
+                      <Text color="green">
+                        {pk.sourceColumn}
+                      </Text>
+                      <Text color="gray" dimColor>
+                        Constraint: {pk.constraintName}
+                      </Text>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
+              {uniqueConstraints.length > 0 && (
+                <Box flexDirection="column" marginBottom={2}>
+                  <Text color="blue" bold>Unique Constraints ({uniqueConstraints.length}):</Text>
+                  {uniqueConstraints.map((uc, index) => (
+                    <Box key={uc.constraintName || index} flexDirection="column" paddingX={1}>
+                      <Text color="blue">
+                        {uc.sourceColumn}
+                      </Text>
+                      <Text color="gray" dimColor>
+                        Constraint: {uc.constraintName}
+                      </Text>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </>
+          )}
+
+          <Box marginTop={1}>
+            <Text color="gray" dimColor>
+              Total relationships: {relationships.length}
+            </Text>
           </Box>
-        )
-      }
-      helpText={`
-Table Relationships Help:
-• Shows foreign keys, primary keys, and unique constraints
-• Foreign keys show which columns reference other tables
-• Primary keys identify unique rows in this table
-• Unique constraints enforce uniqueness on column values
-• Press Esc to go back to table view
-              `.trim()}
-    />
+        </Box>
+      )}
+    </ViewBuilder>
   );
 };
