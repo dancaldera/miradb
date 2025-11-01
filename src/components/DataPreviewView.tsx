@@ -28,9 +28,7 @@ import {
 	formatValueWithTruncation,
 	getHeaderColor,
 } from "../utils/color-mapping.js";
-import {
-	getColumnDisplayWidth,
-} from "../utils/column-selection.js";
+import { getColumnDisplayWidth } from "../utils/column-selection.js";
 
 const PAGE_SIZE = 50;
 
@@ -216,11 +214,7 @@ export const DataPreviewView: React.FC = () => {
 			return;
 		}
 
-		if (
-			input === "n" &&
-			state.hasMoreRows &&
-			!state.loading
-		) {
+		if (input === "n" && state.hasMoreRows && !state.loading) {
 			void fetchTableData(
 				dispatch,
 				state,
@@ -299,15 +293,28 @@ export const DataPreviewView: React.FC = () => {
 			setColumnStartIndex(Math.max(0, columnStartIndex - 1));
 			return;
 		}
-		if (key.rightArrow && state.columns.length > MAX_VISIBLE_COLUMNS && columnStartIndex < state.columns.length - MAX_VISIBLE_COLUMNS) {
-			setColumnStartIndex(Math.min(state.columns.length - MAX_VISIBLE_COLUMNS, columnStartIndex + 1));
+		if (
+			key.rightArrow &&
+			state.columns.length > MAX_VISIBLE_COLUMNS &&
+			columnStartIndex < state.columns.length - MAX_VISIBLE_COLUMNS
+		) {
+			setColumnStartIndex(
+				Math.min(
+					state.columns.length - MAX_VISIBLE_COLUMNS,
+					columnStartIndex + 1,
+				),
+			);
 			return;
 		}
 		if ("home" in key && (key as Record<string, unknown>).home) {
 			setColumnStartIndex(0);
 			return;
 		}
-		if ("end" in key && (key as Record<string, unknown>).end && state.columns.length > MAX_VISIBLE_COLUMNS) {
+		if (
+			"end" in key &&
+			(key as Record<string, unknown>).end &&
+			state.columns.length > MAX_VISIBLE_COLUMNS
+		) {
 			setColumnStartIndex(state.columns.length - MAX_VISIBLE_COLUMNS);
 			return;
 		}
@@ -352,8 +359,7 @@ export const DataPreviewView: React.FC = () => {
 			});
 			return;
 		}
-
-		});
+	});
 
 	// Process rows with sorting and filtering
 	const processedRows = useMemo(() => {
@@ -369,7 +375,10 @@ export const DataPreviewView: React.FC = () => {
 
 	// Select visible columns using our new navigation system
 	const visibleColumns = useMemo(() => {
-		const endIndex = Math.min(columnStartIndex + MAX_VISIBLE_COLUMNS, state.columns.length);
+		const endIndex = Math.min(
+			columnStartIndex + MAX_VISIBLE_COLUMNS,
+			state.columns.length,
+		);
 		return state.columns.slice(columnStartIndex, endIndex);
 	}, [state.columns, columnStartIndex]);
 
@@ -456,12 +465,18 @@ export const DataPreviewView: React.FC = () => {
 			{/* Column selection indicator */}
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan" bold>
-					Columns {columnStartIndex + 1}-{Math.min(columnStartIndex + MAX_VISIBLE_COLUMNS, state.columns.length)} of {state.columns.length}
+					Columns {columnStartIndex + 1}-
+					{Math.min(
+						columnStartIndex + MAX_VISIBLE_COLUMNS,
+						state.columns.length,
+					)}{" "}
+					of {state.columns.length}
 				</Text>
 				{state.columns.length > 0 && (
 					<Text dimColor>
-						{state.columns[columnStartIndex]?.name} • {state.columns[columnStartIndex]?.dataType}
-						{state.columns[columnStartIndex]?.isNullable && " • nullable"}
+						{state.columns[columnStartIndex]?.name} •{" "}
+						{state.columns[columnStartIndex]?.dataType}
+						{state.columns[columnStartIndex]?.nullable && " • nullable"}
 						{state.columns[columnStartIndex]?.isPrimaryKey && " • primary key"}
 						{state.columns[columnStartIndex]?.isForeignKey && " • foreign key"}
 					</Text>
@@ -470,14 +485,28 @@ export const DataPreviewView: React.FC = () => {
 
 			{/* Table header row */}
 			{visibleColumns.length > 0 && (
-				<Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1}>
+				<Box
+					marginTop={1}
+					flexDirection="column"
+					borderStyle="single"
+					borderColor="gray"
+					paddingX={1}
+				>
 					{renderHeaderRow(visibleColumns, state.sortConfig, columnStartIndex)}
-					<Text dimColor>{"─".repeat(Math.max(40, visibleColumns.length * 15))}</Text>
+					<Text dimColor>
+						{"─".repeat(Math.max(40, visibleColumns.length * 15))}
+					</Text>
 				</Box>
 			)}
 
 			{/* Data rows */}
-			<Box marginTop={0} flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1}>
+			<Box
+				marginTop={0}
+				flexDirection="column"
+				borderStyle="single"
+				borderColor="gray"
+				paddingX={1}
+			>
 				{rowsToDisplay.length === 0 ? (
 					<Text dimColor>
 						{state.loading ? "Loading rows…" : "No rows available."}
@@ -499,7 +528,9 @@ export const DataPreviewView: React.FC = () => {
 			{/* Help text */}
 			<Box marginTop={1}>
 				<Text color="gray" dimColor>
-					↑↓: Select rows | ← →: Navigate columns | Enter: Expand | Home/End: First/Last column | p/n: Prev/Next page | s: Sort | r: Refresh | Esc: Back
+					↑↓: Select rows | ← →: Navigate columns | Enter: Expand | Home/End:
+					First/Last column | p/n: Prev/Next page | s: Sort | r: Refresh | Esc:
+					Back
 				</Text>
 			</Box>
 		</Box>
@@ -561,7 +592,7 @@ function renderCondensedRow(
 				key={`col-${idx}`}
 				color={finalColor}
 				bold={isSelectedColumn}
-				dimColor={value === null || value === undefined && !isSelectedColumn}
+				dimColor={value === null || (value === undefined && !isSelectedColumn)}
 			>
 				{formattedValue}
 			</Text>,
