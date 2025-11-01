@@ -15,7 +15,8 @@ bun run build        # Build production bundle with esbuild
 bun run start        # Run built application
 bun run test         # Run tests with Vitest
 bun run test:coverage # Run tests with coverage
-bun run lint         # Run ESLint on source files
+bun run lint         # Run Biome linter checks
+bun run format       # Format code with Biome
 bun run type-check   # Run TypeScript type checking
 ```
 
@@ -181,4 +182,3 @@ This is a **migration from Go to Node.js/TypeScript**. The original Go version u
 - **sql.DB** → **Driver-specific connection pooling**
 
 The migration preserves all functionality while leveraging the Node.js ecosystem and React's component model for better developer experience.
-
