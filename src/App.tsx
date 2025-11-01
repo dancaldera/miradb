@@ -18,11 +18,21 @@ import { ActionType } from "./state/actions.js";
 import { AppProvider, useAppDispatch, useAppState } from "./state/context.js";
 import { initializeApp } from "./state/effects.js";
 import { ViewState } from "./types/state.js";
+import { clearInkScreen } from "./inkControl.js";
 
 const AppContent: React.FC = () => {
-	const state = useAppState();
-	const dispatch = useAppDispatch();
-	const scheduledNotifications = useRef(new Set<string>());
+    const state = useAppState();
+    const dispatch = useAppDispatch();
+    const scheduledNotifications = useRef(new Set<string>());
+	const previousViewRef = useRef<ViewState | null>(null);
+
+	if (
+		previousViewRef.current !== null &&
+		previousViewRef.current !== state.currentView
+	) {
+		clearInkScreen();
+	}
+	previousViewRef.current = state.currentView;
 
 	useEffect(() => {
 		void initializeApp(dispatch);

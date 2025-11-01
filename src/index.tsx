@@ -2,5 +2,7 @@
 import { render } from "ink";
 import React from "react";
 import { App } from "./App.js";
+import { registerInkInstance } from "./inkControl.js";
 
-render(<App />);
+const inkInstance = render(<App />);
+registerInkInstance(inkInstance);

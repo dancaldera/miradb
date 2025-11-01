@@ -34,7 +34,12 @@ export const ConnectionView: React.FC = () => {
 	}, [state.dbType]);
 
 	useInput((input, key) => {
-		if ((input === "s" || input === "S") && state.savedConnections.length > 0) {
+		const isSavedConnectionsShortcut =
+			state.savedConnections.length > 0 &&
+			((key.ctrl && input.toLowerCase() === "s") ||
+				(!key.ctrl && key.meta && input.toLowerCase() === "s"));
+
+		if (isSavedConnectionsShortcut) {
 			dispatch({ type: ActionType.SetView, view: ViewState.SavedConnections });
 		}
 		if (key.escape) {
@@ -84,9 +89,9 @@ export const ConnectionView: React.FC = () => {
 					{state.dbType ? PLACEHOLDERS[state.dbType] : ""}
 				</Text>
 				<Text dimColor>
-					Shortcuts: s saved connections
-					{state.savedConnections.length === 0 ? " (none yet)" : ""} • Esc
-					change database
+					Shortcuts: Ctrl+S saved connections
+					{state.savedConnections.length === 0 ? " (none yet)" : ""} • Esc change
+					database
 				</Text>
 			</Box>
 			{localError && (
