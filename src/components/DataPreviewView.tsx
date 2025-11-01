@@ -29,10 +29,7 @@ import {
 	getHeaderColor,
 } from "../utils/color-mapping.js";
 import {
-	selectVisibleColumns,
 	getColumnDisplayWidth,
-	getVisibilityModeLabel,
-	getNextVisibilityMode,
 } from "../utils/column-selection.js";
 
 const PAGE_SIZE = 50;
@@ -473,14 +470,14 @@ export const DataPreviewView: React.FC = () => {
 
 			{/* Table header row */}
 			{visibleColumns.length > 0 && (
-				<Box marginTop={1} flexDirection="column">
-					{renderHeaderRow(visibleColumns, state.sortConfig)}
-					<Text dimColor>{"─".repeat(80)}</Text>
+				<Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1}>
+					{renderHeaderRow(visibleColumns, state.sortConfig, columnStartIndex)}
+					<Text dimColor>{"─".repeat(Math.max(40, visibleColumns.length * 15))}</Text>
 				</Box>
 			)}
 
 			{/* Data rows */}
-			<Box marginTop={1} flexDirection="column">
+			<Box marginTop={0} flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1}>
 				{rowsToDisplay.length === 0 ? (
 					<Text dimColor>
 						{state.loading ? "Loading rows…" : "No rows available."}
@@ -492,6 +489,7 @@ export const DataPreviewView: React.FC = () => {
 								row,
 								visibleColumns,
 								index === state.selectedRowIndex,
+								columnStartIndex,
 							)}
 						</Box>
 					))
@@ -501,8 +499,7 @@ export const DataPreviewView: React.FC = () => {
 			{/* Help text */}
 			<Box marginTop={1}>
 				<Text color="gray" dimColor>
-					↑↓: Select | Enter: Expand | v: Toggle columns | p/n: Prev/Next | s:
-					Sort | r: Refresh | Esc: Back
+					↑↓: Select rows | ← →: Navigate columns | Enter: Expand | Home/End: First/Last column | p/n: Prev/Next page | s: Sort | r: Refresh | Esc: Back
 				</Text>
 			</Box>
 		</Box>
@@ -520,6 +517,7 @@ function renderCondensedRow(
 	row: DataRow,
 	columns: ColumnInfo[],
 	isSelected: boolean,
+	columnStartIndex: number,
 ): React.ReactElement {
 	if (columns.length === 0) {
 		return <Text>{JSON.stringify(row)}</Text>;
@@ -554,11 +552,16 @@ function renderCondensedRow(
 			);
 		}
 
+		// Highlight the selected column (first column in view)
+		const isSelectedColumn = idx === 0;
+		const finalColor = isSelectedColumn ? "cyan" : color;
+
 		parts.push(
 			<Text
 				key={`col-${idx}`}
-				color={color}
-				dimColor={value === null || value === undefined}
+				color={finalColor}
+				bold={isSelectedColumn}
+				dimColor={value === null || value === undefined && !isSelectedColumn}
 			>
 				{formattedValue}
 			</Text>,
@@ -574,6 +577,7 @@ function renderCondensedRow(
 function renderHeaderRow(
 	columns: ColumnInfo[],
 	sortConfig: { column: string | null; direction: "asc" | "desc" | "off" },
+	columnStartIndex: number,
 ): React.ReactElement {
 	const parts: React.ReactElement[] = [];
 
@@ -604,8 +608,15 @@ function renderHeaderRow(
 			}
 		}
 
+		// Highlight the selected column (first column in view)
+		const isSelectedColumn = idx === 0;
+
 		parts.push(
-			<Text key={`col-${idx}`} color={getHeaderColor()} bold>
+			<Text
+				key={`col-${idx}`}
+				color={isSelectedColumn ? "cyan" : getHeaderColor()}
+				bold={isSelectedColumn}
+			>
 				{columnText}
 			</Text>,
 		);
