@@ -15,14 +15,25 @@ const MAX_VALUE_LENGTH = 24;
 export const SearchView: React.FC = () => {
 	const state = useAppState();
 	const dispatch = useAppDispatch();
-	const table = state.selectedTable;
+	const {
+		selectedTable: table,
+		activeConnection,
+		dbType,
+		columns,
+		searchTerm,
+		searchResults,
+		searchOffset,
+		searchTotalCount,
+		searchHasMore,
+		searchSelectedIndex,
+	} = state;
 	const { stdout } = useStdout();
-	const [inputValue, setInputValue] = useState(state.searchTerm ?? "");
+	const [inputValue, setInputValue] = useState(searchTerm ?? "");
 	const [navigationMode, setNavigationMode] = useState(false);
 
 	useEffect(() => {
-		setInputValue(state.searchTerm ?? "");
-	}, [state.searchTerm]);
+		setInputValue(searchTerm ?? "");
+	}, [searchTerm]);
 
 	useEffect(() => {
 		setNavigationMode(false);
@@ -33,43 +44,43 @@ export const SearchView: React.FC = () => {
 
 	const selectedRow = useMemo<DataRow | null>(() => {
 		if (
-			state.searchSelectedIndex === null ||
-			state.searchSelectedIndex < 0 ||
-			state.searchSelectedIndex >= state.searchResults.length
+			searchSelectedIndex === null ||
+			searchSelectedIndex < 0 ||
+			searchSelectedIndex >= searchResults.length
 		) {
 			return null;
 		}
-		return state.searchResults[state.searchSelectedIndex] ?? null;
-	}, [state.searchResults, state.searchSelectedIndex]);
+		return searchResults[searchSelectedIndex] ?? null;
+	}, [searchResults, searchSelectedIndex]);
 
 	const rowsLabel = useMemo(() => {
-		if (state.searchResults.length === 0) {
+		if (searchResults.length === 0) {
 			return "No results";
 		}
-		const start = state.searchOffset + 1;
-		const end = state.searchOffset + state.searchResults.length;
-		return `Showing ${start}-${end} of ${state.searchTotalCount}`;
-	}, [state.searchOffset, state.searchResults.length, state.searchTotalCount]);
+		const start = searchOffset + 1;
+		const end = searchOffset + searchResults.length;
+		return `Showing ${start}-${end} of ${searchTotalCount}`;
+	}, [searchOffset, searchResults.length, searchTotalCount]);
 
 	const handleSearch = useCallback(
 		(offset: number = 0) => {
-			if (!table || !state.activeConnection || !state.dbType) {
+			if (!table || !activeConnection || !dbType) {
 				dispatch({
 					type: ActionType.SetError,
 					error: "No table selected or connection unavailable.",
 				});
 				return;
 			}
-			const term = navigationMode ? state.searchTerm : inputValue;
+			const term = navigationMode ? searchTerm : inputValue;
 			void searchTableRows(
 				dispatch,
 				state,
 				{
-					type: state.dbType,
-					connectionString: state.activeConnection.connectionString,
+					type: dbType,
+					connectionString: activeConnection.connectionString,
 				},
 				table,
-				state.columns,
+				columns,
 				{ term, offset, limit: SEARCH_PAGE_SIZE },
 			);
 		},
@@ -78,10 +89,11 @@ export const SearchView: React.FC = () => {
 			navigationMode,
 			inputValue,
 			state,
-			state.columns,
-			state.dbType,
-			state.searchTerm,
+			columns,
+			dbType,
+			searchTerm,
 			table,
+			activeConnection,
 		],
 	);
 
@@ -104,38 +116,37 @@ export const SearchView: React.FC = () => {
 			return;
 		}
 
-		const resultsCount = state.searchResults.length;
+		const resultsCount = searchResults.length;
 		if (resultsCount === 0) {
 			return;
 		}
 
 		if (key.upArrow) {
 			const nextIndex =
-				state.searchSelectedIndex === null || state.searchSelectedIndex <= 0
+				searchSelectedIndex === null || searchSelectedIndex <= 0
 					? resultsCount - 1
-					: (state.searchSelectedIndex ?? 0) - 1;
+					: (searchSelectedIndex ?? 0) - 1;
 			dispatch({ type: ActionType.SetSearchSelectedIndex, index: nextIndex });
 			return;
 		}
 
 		if (key.downArrow) {
 			const nextIndex =
-				state.searchSelectedIndex === null ||
-				state.searchSelectedIndex >= resultsCount - 1
+				searchSelectedIndex === null || searchSelectedIndex >= resultsCount - 1
 					? 0
-					: (state.searchSelectedIndex ?? 0) + 1;
+					: (searchSelectedIndex ?? 0) + 1;
 			dispatch({ type: ActionType.SetSearchSelectedIndex, index: nextIndex });
 			return;
 		}
 
-		if ((input === "n" || key.pageDown) && state.searchHasMore) {
-			const nextOffset = state.searchOffset + SEARCH_PAGE_SIZE;
+		if ((input === "n" || key.pageDown) && searchHasMore) {
+			const nextOffset = searchOffset + SEARCH_PAGE_SIZE;
 			handleSearch(nextOffset);
 			return;
 		}
 
-		if ((input === "p" || key.pageUp) && state.searchOffset > 0) {
-			const nextOffset = Math.max(0, state.searchOffset - SEARCH_PAGE_SIZE);
+		if ((input === "p" || key.pageUp) && searchOffset > 0) {
+			const nextOffset = Math.max(0, searchOffset - SEARCH_PAGE_SIZE);
 			handleSearch(nextOffset);
 			return;
 		}
@@ -175,29 +186,34 @@ export const SearchView: React.FC = () => {
 				</Box>
 				<TextInput
 					value={inputValue}
-					onChange={setInputValue}
+					onChange={(value) => {
+						if (!navigationMode) {
+							setInputValue(value);
+						}
+					}}
 					onSubmit={() => {
-						handleSearch(0);
-						setNavigationMode(true);
+						if (!navigationMode) {
+							handleSearch(0);
+							setNavigationMode(true);
+						}
 					}}
 					placeholder="Type to search across all columns..."
-					disabled={navigationMode}
 					focus={!navigationMode}
 				/>
 				<Box marginY={1} flexDirection="column">
 					<Text color="gray" dimColor>
-						{state.searchResults.length > 0
+						{searchResults.length > 0
 							? "Use Tab to switch between editing and navigating results."
 							: "Results will appear below after executing a search."}
 					</Text>
 				</Box>
 				<Box flexDirection="column">
-					{state.searchResults.length === 0 ? (
+					{searchResults.length === 0 ? (
 						<Text dimColor>No results yet.</Text>
 					) : (
-						state.searchResults.map((row, index) => {
-							const isSelected = index === state.searchSelectedIndex;
-							const label = formatRowSummary(row, state.columns, summaryWidth);
+						searchResults.map((row, index) => {
+							const isSelected = index === searchSelectedIndex;
+							const label = formatRowSummary(row, columns, summaryWidth);
 							return (
 								<Box
 									key={index}
@@ -209,7 +225,7 @@ export const SearchView: React.FC = () => {
 									marginBottom={1}
 								>
 									<Text color={isSelected ? "cyan" : "gray"}>
-										{formatRowIndex(state.searchOffset, index)}
+										{formatRowIndex(searchOffset, index)}
 									</Text>
 									<Text color={isSelected ? "white" : undefined}>{label}</Text>
 								</Box>
@@ -217,13 +233,13 @@ export const SearchView: React.FC = () => {
 						})
 					)}
 				</Box>
-				{state.searchResults.length > 0 && (
+				{searchResults.length > 0 && (
 					<Box marginTop={1} flexDirection="row" justifyContent="space-between">
 						<Text color="gray" dimColor>
 							{rowsLabel}
 						</Text>
 						<Text color="gray" dimColor>
-							{state.searchHasMore ? "n: Next page" : "End of results"}
+							{searchHasMore ? "n: Next page" : "End of results"}
 						</Text>
 					</Box>
 				)}

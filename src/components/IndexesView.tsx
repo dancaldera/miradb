@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { createDatabaseConnection } from "../database/connection.js";
 import { ActionType } from "../state/actions.js";
 import { useAppDispatch, useAppState } from "../state/context.js";
-import { DBType, ViewState } from "../types/state.js";
+import type { TableInfo } from "../types/state.js";
+import { DBType } from "../types/state.js";
 import { ViewBuilder } from "./ViewBuilder.js";
 
 interface Index {
@@ -22,25 +23,35 @@ export const IndexesView: React.FC = () => {
 	const [indexes, setIndexes] = useState<Index[]>([]);
 	const [loading, setLoading] = useState(false);
 
+	const table = state.selectedTable;
+	const activeConnection = state.activeConnection;
+	const dbType = state.dbType;
+
 	useEffect(() => {
-		if (!state?.activeConnection || !state?.dbType || !state?.selectedTable) {
+		if (!activeConnection || !dbType || !table) {
+			setIndexes([]);
 			return;
 		}
 
+		let isMounted = true;
+
 		const fetchIndexes = async () => {
 			setLoading(true);
+			let connection: ReturnType<typeof createDatabaseConnection> | null = null;
 			try {
-				const connection = createDatabaseConnection({
-					type: state.dbType,
-					connectionString: state.activeConnection.connectionString,
+				connection = createDatabaseConnection({
+					type: dbType,
+					connectionString: activeConnection.connectionString,
 				});
 				await connection.connect();
 
 				let query: string;
-				const params: any[] = [];
+				const params: unknown[] = [];
 
-				switch (state.dbType) {
+				switch (dbType) {
 					case DBType.PostgreSQL: {
+						const schemaName = table.schema ?? "public";
+						const tableName = table.name;
 						query = `
               SELECT
                 i.relname as index_name,
@@ -58,13 +69,8 @@ export const IndexesView: React.FC = () => {
                 AND t.relname = $1
                 AND n.nspname = $2
               ORDER BY i.relname, a.attnum
+
             `;
-						const schemaName = state.selectedTable.includes(".")
-							? state.selectedTable.split(".")[0]
-							: "public";
-						const tableName = state.selectedTable.includes(".")
-							? state.selectedTable.split(".").pop()
-							: state.selectedTable;
 						params.push(tableName, schemaName);
 						break;
 					}
@@ -81,74 +87,77 @@ export const IndexesView: React.FC = () => {
               WHERE TABLE_SCHEMA = DATABASE()
                 AND TABLE_NAME = ?
               ORDER BY INDEX_NAME, SEQ_IN_INDEX
+
             `;
-						params.push(
-							state.selectedTable.split(".").pop() || state.selectedTable,
-						);
+						params.push(table.name);
 						break;
 
 					case DBType.SQLite:
 						query = `PRAGMA index_list(?)`;
-						params.push(
-							state.selectedTable.split(".").pop() || state.selectedTable,
-						);
+						params.push(table.name);
 						break;
 
 					default:
-						throw new Error(`Unsupported database type: ${state.dbType}`);
+						throw new Error(`Unsupported database type: ${dbType}`);
 				}
 
 				const result = await connection.query(query, params);
 
 				let formattedIndexes: Index[] = [];
 
-				if (state.dbType === DBType.SQLite) {
+				if (dbType === DBType.SQLite) {
 					// SQLite returns different format, need to get column info separately
-					const indexList = result.rows;
-					for (const indexRow of indexList as any[]) {
+					const indexList = result.rows as Array<Record<string, unknown>>;
+					for (const indexRow of indexList) {
 						const columnsQuery = `PRAGMA index_info(?)`;
 						const columnsResult = await connection.query(columnsQuery, [
 							indexRow.name,
 						]);
 
+						const columnNames = columnsResult.rows.map(
+							(row: Record<string, unknown>) => String(row.name ?? ""),
+						);
 						formattedIndexes.push({
-							name: indexRow.name,
-							tableName: state.selectedTable!,
-							columns: columnsResult.rows.map((row: any) => row.name),
+							name: String(indexRow.name ?? ""),
+							tableName: renderTableName(table),
+							columns: columnNames,
 							isUnique: Boolean(indexRow.unique),
-							isPrimary:
-								indexRow.name === "sqlite_autoindex_" + state.selectedTable,
+							isPrimary: String(indexRow.name ?? "").startsWith(
+								`sqlite_autoindex_${table.name}`,
+							),
 						});
 					}
 				} else {
 					// Group by index name and collect columns
 					const indexMap = new Map<string, Index>();
 
-					for (const row of result.rows as any[]) {
-						const indexName = row.index_name;
+					for (const row of result.rows as Array<Record<string, unknown>>) {
+						const indexName = String(row.index_name ?? "");
 
 						if (!indexMap.has(indexName)) {
 							indexMap.set(indexName, {
 								name: indexName,
-								tableName: state.selectedTable!,
+								tableName: renderTableName(table),
 								columns: [],
 								isUnique: Boolean(row.is_unique),
 								isPrimary: Boolean(row.is_primary),
-								type: row.index_type,
+								type: row.index_type ? String(row.index_type) : undefined,
 							});
 						}
 
 						const index = indexMap.get(indexName)!;
-						if (!index.columns.includes(row.column_name)) {
-							index.columns.push(row.column_name);
+						const columnName = String(row.column_name ?? "");
+						if (columnName && !index.columns.includes(columnName)) {
+							index.columns.push(columnName);
 						}
 					}
 
 					formattedIndexes = Array.from(indexMap.values());
 				}
 
-				setIndexes(formattedIndexes);
-				await connection.close();
+				if (isMounted) {
+					setIndexes(formattedIndexes);
+				}
 			} catch (error) {
 				dispatch({
 					type: ActionType.SetError,
@@ -156,12 +165,25 @@ export const IndexesView: React.FC = () => {
 						error instanceof Error ? error.message : "Failed to fetch indexes",
 				});
 			} finally {
-				setLoading(false);
+				if (connection) {
+					try {
+						await connection.close();
+					} catch {
+						// ignore close errors
+					}
+				}
+				if (isMounted) {
+					setLoading(false);
+				}
 			}
 		};
 
-		fetchIndexes();
-	}, [state?.activeConnection, state?.dbType, state?.selectedTable, dispatch]);
+		void fetchIndexes();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [activeConnection, dbType, table, dispatch]);
 
 	const primaryKeys = indexes.filter((i) => i.isPrimary);
 	const uniqueIndexes = indexes.filter((i) => i.isUnique && !i.isPrimary);
@@ -170,7 +192,7 @@ export const IndexesView: React.FC = () => {
 	return (
 		<ViewBuilder
 			title="Table Indexes"
-			subtitle={`Table: ${state?.selectedTable || "Unknown"}`}
+			subtitle={`Table: ${table ? renderTableName(table) : "Unknown"}`}
 			footer="Esc: Back to table view"
 		>
 			{loading ? (
@@ -277,3 +299,7 @@ export const IndexesView: React.FC = () => {
 		</ViewBuilder>
 	);
 };
+
+function renderTableName(table: TableInfo): string {
+	return table.schema ? `${table.schema}.${table.name}` : table.name;
+}

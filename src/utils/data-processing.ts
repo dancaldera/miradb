@@ -71,16 +71,13 @@ export function compareValues(
 }
 
 export function sortRows(rows: DataRow[], sortConfig: SortConfig): DataRow[] {
-	if (!sortConfig.column || sortConfig.direction === "off") {
+	const { column, direction } = sortConfig;
+	if (!column || direction === "off") {
 		return rows;
 	}
 
 	return [...rows].sort((a, b) => {
-		return compareValues(
-			a[sortConfig.column!],
-			b[sortConfig.column!],
-			sortConfig.direction,
-		);
+		return compareValues(a[column], b[column], direction);
 	});
 }
 

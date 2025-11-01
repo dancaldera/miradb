@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { createDatabaseConnection } from "../database/connection.js";
 import { ActionType } from "../state/actions.js";
 import { useAppDispatch, useAppState } from "../state/context.js";
-import { DBType, ViewState } from "../types/state.js";
+import type { TableInfo } from "../types/state.js";
+import { DBType } from "../types/state.js";
 import { ViewBuilder } from "./ViewBuilder.js";
 
 interface Relationship {
@@ -22,24 +23,32 @@ export const RelationshipsView: React.FC = () => {
 	const [relationships, setRelationships] = useState<Relationship[]>([]);
 	const [loading, setLoading] = useState(false);
 
+	const table = state.selectedTable;
+	const activeConnection = state.activeConnection;
+	const dbType = state.dbType;
+
 	useEffect(() => {
-		if (!state?.activeConnection || !state?.dbType || !state?.selectedTable) {
+		if (!activeConnection || !dbType || !table) {
+			setRelationships([]);
 			return;
 		}
 
+		let isMounted = true;
+
 		const fetchRelationships = async () => {
 			setLoading(true);
+			let connection: ReturnType<typeof createDatabaseConnection> | null = null;
 			try {
-				const connection = createDatabaseConnection({
-					type: state.dbType,
-					connectionString: state.activeConnection.connectionString,
+				connection = createDatabaseConnection({
+					type: dbType,
+					connectionString: activeConnection.connectionString,
 				});
 				await connection.connect();
 
 				let query: string;
-				const params: any[] = [];
+				const params: unknown[] = [];
 
-				switch (state.dbType) {
+				switch (dbType) {
 					case DBType.PostgreSQL:
 						query = `
               SELECT
@@ -59,11 +68,9 @@ export const RelationshipsView: React.FC = () => {
               WHERE tc.table_schema = $1
                 AND tc.table_name = $2
               ORDER BY tc.constraint_type, tc.constraint_name
+
             `;
-						params.push(
-							state.selectedTable.split(".")[0] || "public",
-							state.selectedTable.split(".").pop() || state.selectedTable,
-						);
+						params.push(table.schema ?? "public", table.name);
 						break;
 
 					case DBType.MySQL:
@@ -81,50 +88,54 @@ export const RelationshipsView: React.FC = () => {
               WHERE information_schema.KEY_COLUMN_USAGE.TABLE_SCHEMA = DATABASE()
                 AND information_schema.KEY_COLUMN_USAGE.TABLE_NAME = ?
               ORDER BY information_schema.TABLE_CONSTRAINTS.CONSTRAINT_TYPE, CONSTRAINT_NAME
+
             `;
-						params.push(
-							state.selectedTable.split(".").pop() || state.selectedTable,
-						);
+						params.push(table.name);
 						break;
 
 					case DBType.SQLite:
 						query = `PRAGMA foreign_key_list(?)`;
-						params.push(
-							state.selectedTable.split(".").pop() || state.selectedTable,
-						);
+						params.push(table.name);
 						break;
 
 					default:
-						throw new Error(`Unsupported database type: ${state.dbType}`);
+						throw new Error(`Unsupported database type: ${dbType}`);
 				}
 
 				const result = await connection.query(query, params);
 
 				let formattedRelationships: Relationship[] = [];
 
-				if (state.dbType === DBType.SQLite) {
+				if (dbType === DBType.SQLite) {
 					// SQLite returns different format
-					formattedRelationships = result.rows.map((row: any) => ({
-						constraintName: row.id || `fk_${row.table}`,
-						sourceTable: state.selectedTable!,
-						sourceColumn: row.from,
-						targetTable: row.table,
-						targetColumn: row.to,
-						constraintType: "FOREIGN KEY" as const,
-					}));
+					formattedRelationships = result.rows.map(
+						(row: Record<string, unknown>) => ({
+							constraintName: String(row.id ?? `fk_${row.table ?? ""}`),
+							sourceTable: renderTableName(table),
+							sourceColumn: String(row.from ?? ""),
+							targetTable: String(row.table ?? ""),
+							targetColumn: String(row.to ?? ""),
+							constraintType: "FOREIGN KEY" as const,
+						}),
+					);
 				} else {
-					formattedRelationships = result.rows.map((row: any) => ({
-						constraintName: row.constraint_name,
-						sourceTable: row.source_table,
-						sourceColumn: row.source_column,
-						targetTable: row.target_table,
-						targetColumn: row.target_column,
-						constraintType: row.constraint_type || "FOREIGN KEY",
-					}));
+					formattedRelationships = result.rows.map(
+						(row: Record<string, unknown>) => ({
+							constraintName: String(row.constraint_name ?? ""),
+							sourceTable: String(row.source_table ?? renderTableName(table)),
+							sourceColumn: String(row.source_column ?? ""),
+							targetTable: String(row.target_table ?? ""),
+							targetColumn: String(row.target_column ?? ""),
+							constraintType:
+								(row.constraint_type as Relationship["constraintType"]) ||
+								"FOREIGN KEY",
+						}),
+					);
 				}
 
-				setRelationships(formattedRelationships);
-				await connection.close();
+				if (isMounted) {
+					setRelationships(formattedRelationships);
+				}
 			} catch (error) {
 				dispatch({
 					type: ActionType.SetError,
@@ -134,12 +145,25 @@ export const RelationshipsView: React.FC = () => {
 							: "Failed to fetch relationships",
 				});
 			} finally {
-				setLoading(false);
+				if (connection) {
+					try {
+						await connection.close();
+					} catch {
+						// ignore close errors
+					}
+				}
+				if (isMounted) {
+					setLoading(false);
+				}
 			}
 		};
 
-		fetchRelationships();
-	}, [state?.activeConnection, state?.dbType, state?.selectedTable, dispatch]);
+		void fetchRelationships();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [activeConnection, dbType, table, dispatch]);
 
 	const foreignKeys = relationships.filter(
 		(r) => r.constraintType === "FOREIGN KEY",
@@ -154,7 +178,7 @@ export const RelationshipsView: React.FC = () => {
 	return (
 		<ViewBuilder
 			title="Table Relationships"
-			subtitle={`Table: ${state.selectedTable || "Unknown"}`}
+			subtitle={`Table: ${table ? renderTableName(table) : "Unknown"}`}
 			footer="Esc: Back to table view"
 		>
 			{loading ? (
@@ -247,3 +271,7 @@ export const RelationshipsView: React.FC = () => {
 		</ViewBuilder>
 	);
 };
+
+function renderTableName(table: TableInfo): string {
+	return table.schema ? `${table.schema}.${table.name}` : table.name;
+}

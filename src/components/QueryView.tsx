@@ -90,10 +90,18 @@ export const QueryView: React.FC = () => {
 				<Box flexDirection="column" marginBottom={1}>
 					<TextInput
 						value={queryText}
-						onChange={setQueryText}
-						onSubmit={handleSubmit}
+						onChange={(value) => {
+							if (!showCommands) {
+								setQueryText(value);
+							}
+						}}
+						onSubmit={() => {
+							if (!showCommands) {
+								void handleSubmit();
+							}
+						}}
 						placeholder="SELECT * FROM table_name LIMIT 10..."
-						disabled={showCommands}
+						focus={!showCommands}
 					/>
 				</Box>
 
