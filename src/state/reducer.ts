@@ -3,6 +3,15 @@ import { type AppState, initialAppState, ViewState } from "../types/state.js";
 import { ActionType, type AppAction } from "./actions.js";
 import { tableCacheKey } from "./cache.js";
 
+function resetSearchState(draft: AppState): void {
+	draft.searchTerm = "";
+	draft.searchResults = [];
+	draft.searchTotalCount = 0;
+	draft.searchOffset = 0;
+	draft.searchHasMore = false;
+	draft.searchSelectedIndex = null;
+}
+
 export function appReducer(
 	state: AppState = initialAppState,
 	action: AppAction,
@@ -64,6 +73,7 @@ export function appReducer(
 				draft.refreshingTableKey = null;
 				draft.refreshTimestamps = {};
 				draft.notifications = [];
+				resetSearchState(draft);
 				break;
 
 			case ActionType.SetSavedConnections:
@@ -131,6 +141,7 @@ export function appReducer(
 
 			case ActionType.SetSelectedTable:
 				draft.selectedTable = action.table;
+				resetSearchState(draft);
 				{
 					const key = tableCacheKey(action.table);
 					const cache = key ? draft.tableCache[key] : undefined;
@@ -163,6 +174,7 @@ export function appReducer(
 				draft.hasMoreRows = false;
 				draft.currentOffset = 0;
 				draft.refreshingTableKey = null;
+				resetSearchState(draft);
 				break;
 
 			case ActionType.SetDataRows:
@@ -269,6 +281,26 @@ export function appReducer(
 
 			case ActionType.SetFilterValue:
 				draft.filterValue = action.filterValue;
+				break;
+
+			case ActionType.SetSearchTerm:
+				draft.searchTerm = action.term;
+				break;
+
+			case ActionType.SetSearchResultsPage:
+				draft.searchResults = action.rows;
+				draft.searchTotalCount = action.totalCount;
+				draft.searchOffset = action.offset;
+				draft.searchHasMore = action.hasMore;
+				draft.searchSelectedIndex = action.rows.length > 0 ? 0 : null;
+				break;
+
+			case ActionType.SetSearchSelectedIndex:
+				draft.searchSelectedIndex = action.index;
+				break;
+
+			case ActionType.ClearSearch:
+				resetSearchState(draft);
 				break;
 
 			default:

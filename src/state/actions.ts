@@ -49,6 +49,10 @@ export enum ActionType {
 	SetSortConfig = "SET_SORT_CONFIG",
 	SetFilterValue = "SET_FILTER_VALUE",
 	ExportData = "EXPORT_DATA",
+	SetSearchTerm = "SET_SEARCH_TERM",
+	SetSearchResultsPage = "SET_SEARCH_RESULTS_PAGE",
+	SetSearchSelectedIndex = "SET_SEARCH_SELECTED_INDEX",
+	ClearSearch = "CLEAR_SEARCH",
 }
 
 export type AppAction =
@@ -90,4 +94,14 @@ export type AppAction =
 			type: ActionType.ExportData;
 			format: "csv" | "json";
 			includeHeaders: boolean;
-	  };
+	  }
+	| { type: ActionType.SetSearchTerm; term: string }
+	| {
+			type: ActionType.SetSearchResultsPage;
+			rows: DataRow[];
+			totalCount: number;
+			offset: number;
+			hasMore: boolean;
+	  }
+	| { type: ActionType.SetSearchSelectedIndex; index: number | null }
+	| { type: ActionType.ClearSearch };

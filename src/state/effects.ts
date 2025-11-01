@@ -12,6 +12,7 @@ import type {
 	AppState,
 	ColumnInfo,
 	ConnectionInfo,
+	DataRow,
 	NotificationLevel,
 	QueryHistoryItem,
 	TableInfo,
@@ -306,6 +307,7 @@ export interface FetchTableDataOptions {
 }
 
 const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_SEARCH_PAGE_SIZE = 25;
 
 export async function fetchTableData(
 	dispatch: AppDispatch,
@@ -370,6 +372,104 @@ export async function fetchTableData(
 		}
 		dispatch({ type: ActionType.StopLoading });
 		trackRefreshTimestamp(dispatch, table);
+	}
+}
+
+export interface SearchTableOptions {
+	term: string;
+	offset?: number;
+	limit?: number;
+}
+
+export async function searchTableRows(
+	dispatch: AppDispatch,
+	state: AppState,
+	dbConfig: DatabaseConfig,
+	table: TableInfo,
+	columns: ColumnInfo[],
+	options: SearchTableOptions,
+): Promise<void> {
+	const normalizedTerm = options.term.trim();
+	dispatch({ type: ActionType.SetSearchTerm, term: normalizedTerm });
+
+	if (!normalizedTerm) {
+		dispatch({ type: ActionType.ClearSearch });
+		dispatch({
+			type: ActionType.SetInfo,
+			message: "Enter a search term to find matching rows.",
+		});
+		return;
+	}
+
+	if (columns.length === 0) {
+		dispatch({
+			type: ActionType.SetError,
+			error: "Column metadata is required before searching.",
+		});
+		return;
+	}
+
+	const offset = Math.max(options.offset ?? 0, 0);
+	const limit = Math.max(options.limit ?? DEFAULT_SEARCH_PAGE_SIZE, 1);
+	const likeTerm = `%${normalizedTerm}%`;
+
+	const whereClause = buildSearchWhereClause(dbConfig.type, columns);
+	const orderColumn = selectSearchOrderColumn(dbConfig.type, columns);
+	const queries = buildSearchQueries(
+		dbConfig.type,
+		table,
+		whereClause,
+		orderColumn,
+		limit,
+		offset,
+	);
+
+	let connection: DatabaseConnection | null = null;
+
+	dispatch({ type: ActionType.StartLoading });
+
+	try {
+		connection = createDatabaseConnection(dbConfig);
+		await connection.connect();
+
+		const { sql: countSql, params: countParams } = parameterize(
+			queries.countQuery,
+			dbConfig.type,
+			[likeTerm],
+		);
+		const countResult = await connection.query(countSql, countParams);
+		const totalCount = extractCount(countResult.rows[0]);
+
+		const { sql: dataSql, params: dataParams } = parameterize(
+			queries.dataQuery,
+			dbConfig.type,
+			[likeTerm],
+		);
+		const dataResult = await connection.query(dataSql, dataParams);
+
+		const hasMore = offset + dataResult.rows.length < totalCount;
+		dispatch({
+			type: ActionType.SetSearchResultsPage,
+			rows: dataResult.rows as DataRow[],
+			totalCount,
+			offset,
+			hasMore,
+		});
+	} catch (error) {
+		dispatch({
+			type: ActionType.SetError,
+			error:
+				error instanceof Error ? error.message : "Search execution failed.",
+		});
+	} finally {
+		if (connection) {
+			try {
+				await connection.close();
+			} catch {
+				// ignore close errors
+			}
+		}
+		dispatch({ type: ActionType.StopLoading });
 	}
 }
 
@@ -848,6 +948,91 @@ function buildTableReference(dbType: DBType, table: TableInfo): string {
 		return `${schemaName}.${tableName}`;
 	}
 	return tableName;
+}
+
+function extractCount(row: unknown): number {
+	if (!row || typeof row !== "object") {
+		return 0;
+	}
+	const record = row as Record<string, unknown>;
+	const value =
+		record.total_count ??
+		record.count ??
+		record.COUNT ??
+		Object.values(record)[0];
+
+	if (typeof value === "number") {
+		return Number.isNaN(value) ? 0 : value;
+	}
+	if (typeof value === "bigint") {
+		return Number(value);
+	}
+	if (typeof value === "string") {
+		const parsed = Number(value);
+		return Number.isNaN(parsed) ? 0 : parsed;
+	}
+	return 0;
+}
+
+function buildSearchWhereClause(dbType: DBType, columns: ColumnInfo[]): string {
+	const expressions = columns
+		.map((column) => buildSearchExpression(dbType, column.name))
+		.filter(Boolean);
+	if (expressions.length === 0) {
+		return "1=1";
+	}
+	return expressions.join(" OR ");
+}
+
+function buildSearchExpression(dbType: DBType, columnName: string): string {
+	const columnRef = quoteIdentifier(dbType, columnName);
+	switch (dbType) {
+		case DBType.MySQL:
+			return `LOWER(CAST(${columnRef} AS CHAR)) LIKE LOWER($1)`;
+		case DBType.SQLite:
+			return `LOWER(CAST(${columnRef} AS TEXT)) LIKE LOWER($1)`;
+		case DBType.PostgreSQL:
+		default:
+			return `(${columnRef})::TEXT ILIKE $1`;
+	}
+}
+
+function selectSearchOrderColumn(
+	dbType: DBType,
+	columns: ColumnInfo[],
+): string | null {
+	if (columns.length === 0) {
+		return null;
+	}
+	const primary = columns.find((column) => column.isPrimaryKey);
+	const chosen = primary ?? columns[0];
+	return quoteIdentifier(dbType, chosen.name);
+}
+
+function buildSearchQueries(
+	dbType: DBType,
+	table: TableInfo,
+	whereClause: string,
+	orderColumn: string | null,
+	limit: number,
+	offset: number,
+): { countQuery: string; dataQuery: string } {
+	const tableRef = buildTableReference(dbType, table);
+	const orderClause = orderColumn ? ` ORDER BY ${orderColumn}` : "";
+	switch (dbType) {
+		case DBType.MySQL:
+			return {
+				countQuery: `SELECT COUNT(*) AS total_count FROM ${tableRef} WHERE ${whereClause}`,
+				dataQuery: `SELECT * FROM ${tableRef} WHERE ${whereClause}${orderClause} LIMIT ${offset}, ${limit}`,
+			};
+		case DBType.SQLite:
+		case DBType.PostgreSQL:
+		default:
+			return {
+				countQuery: `SELECT COUNT(*) AS total_count FROM ${tableRef} WHERE ${whereClause}`,
+				dataQuery: `SELECT * FROM ${tableRef} WHERE ${whereClause}${orderClause} LIMIT ${limit} OFFSET ${offset}`,
+			};
+	}
 }
 
 export async function exportTableData(

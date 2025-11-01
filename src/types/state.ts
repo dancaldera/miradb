@@ -10,6 +10,7 @@ export enum ViewState {
 	RowDetail = "ROW_DETAIL",
 	Relationships = "RELATIONSHIPS",
 	Indexes = "INDEXES",
+	Search = "SEARCH",
 	Help = "HELP",
 }
 
@@ -106,6 +107,12 @@ export interface AppState {
 	infoMessage: string | null;
 	sortConfig: SortConfig;
 	filterValue: string;
+	searchTerm: string;
+	searchResults: DataRow[];
+	searchTotalCount: number;
+	searchOffset: number;
+	searchHasMore: boolean;
+	searchSelectedIndex: number | null;
 }
 
 export const initialAppState: AppState = {
@@ -132,4 +139,10 @@ export const initialAppState: AppState = {
 	infoMessage: null,
 	sortConfig: { column: null, direction: "off" },
 	filterValue: "",
+	searchTerm: "",
+	searchResults: [],
+	searchTotalCount: 0,
+	searchOffset: 0,
+	searchHasMore: false,
+	searchSelectedIndex: null,
 };

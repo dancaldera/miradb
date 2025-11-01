@@ -12,6 +12,7 @@ import { QueryView } from "./components/QueryView.js";
 import { RelationshipsView } from "./components/RelationshipsView.js";
 import { RowDetailView } from "./components/RowDetailView.js";
 import { SavedConnectionsView } from "./components/SavedConnectionsView.js";
+import { SearchView } from "./components/SearchView.js";
 import { TablesView } from "./components/TablesView.js";
 import { ActionType } from "./state/actions.js";
 import { AppProvider, useAppDispatch, useAppState } from "./state/context.js";
@@ -50,7 +51,8 @@ const AppContent: React.FC = () => {
 		if (
 			(input === "h" || input === "?") &&
 			state.currentView !== ViewState.Query &&
-			state.currentView !== ViewState.Tables
+			state.currentView !== ViewState.Tables &&
+			state.currentView !== ViewState.Search
 		) {
 			dispatch({ type: ActionType.SetView, view: ViewState.Help });
 		}
@@ -96,6 +98,8 @@ const AppContent: React.FC = () => {
 				return <DataPreviewView />;
 			case ViewState.Query:
 				return <QueryView />;
+			case ViewState.Search:
+				return <SearchView />;
 			case ViewState.QueryHistory:
 				return <QueryHistoryView />;
 			case ViewState.RowDetail:
