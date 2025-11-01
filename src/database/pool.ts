@@ -1,9 +1,9 @@
-import { Pool as PostgresPool } from "pg";
-import mysql from "mysql2/promise";
 import Database from "better-sqlite3";
+import mysql from "mysql2/promise";
+import { Pool as PostgresPool } from "pg";
 import { DBType } from "../types/state.js";
-import type { PoolConfig, SupportedPool } from "./types.js";
 import { ConnectionError } from "./errors.js";
+import type { PoolConfig, SupportedPool } from "./types.js";
 
 export function createPool(
 	type: DBType,

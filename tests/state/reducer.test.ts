@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { appReducer } from "../../src/state/reducer.js";
-import { initialAppState, ViewState, DBType } from "../../src/types/state.js";
 import { ActionType } from "../../src/state/actions.js";
+import { appReducer } from "../../src/state/reducer.js";
+import { DBType, initialAppState, ViewState } from "../../src/types/state.js";
 
 describe("appReducer", () => {
 	it("switches view and clears messages", () => {

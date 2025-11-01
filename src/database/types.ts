@@ -1,6 +1,6 @@
-import type { Pool as PostgresPool } from "pg";
-import type { Pool as MySQLPool } from "mysql2/promise";
 import type DatabaseConstructor from "better-sqlite3";
+import type { Pool as MySQLPool } from "mysql2/promise";
+import type { Pool as PostgresPool } from "pg";
 import type { DBType } from "../types/state.js";
 
 export type SQLiteDatabase = InstanceType<typeof DatabaseConstructor>;

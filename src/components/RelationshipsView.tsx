@@ -1,11 +1,10 @@
-import type React from "react";
-import { useState, useEffect } from "react";
 import { Box, Text } from "ink";
-import { useAppDispatch, useAppState } from "../state/context.js";
-import { ViewState } from "../types/state.js";
-import { ActionType } from "../state/actions.js";
+import type React from "react";
+import { useEffect, useState } from "react";
 import { createDatabaseConnection } from "../database/connection.js";
-import { DBType } from "../types/state.js";
+import { ActionType } from "../state/actions.js";
+import { useAppDispatch, useAppState } from "../state/context.js";
+import { DBType, ViewState } from "../types/state.js";
 import { ViewBuilder } from "./ViewBuilder.js";
 
 interface Relationship {

@@ -1,19 +1,18 @@
-import type React from "react";
-import { useEffect, useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import SelectInput from "ink-select-input";
 import TextInput from "ink-text-input";
 import { nanoid } from "nanoid";
+import type React from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ActionType } from "../state/actions.js";
 import { useAppDispatch, useAppState } from "../state/context.js";
 import {
 	connectToDatabase,
 	removeSavedConnection,
 	updateSavedConnection,
 } from "../state/effects.js";
-import { ActionType } from "../state/actions.js";
-import { ViewState } from "../types/state.js";
 import type { NotificationLevel } from "../types/state.js";
-import { DBType } from "../types/state.js";
+import { DBType, ViewState } from "../types/state.js";
 
 interface SelectItem {
 	label: string;

@@ -1,6 +1,8 @@
+import { Box, Text, useInput, useStdout } from "ink";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Box, Text, useInput } from "ink";
+import { ActionType } from "../state/actions.js";
+import { tableCacheKey } from "../state/cache.js";
 import { useAppDispatch, useAppState } from "../state/context.js";
 import {
 	clearConnectionCache,
@@ -9,37 +11,229 @@ import {
 	fetchColumns,
 	fetchTableData,
 } from "../state/effects.js";
-import { ViewState } from "../types/state.js";
-import { ActionType } from "../state/actions.js";
 import type { ColumnInfo, DataRow, TableInfo } from "../types/state.js";
-import { tableCacheKey } from "../state/cache.js";
-import {
-	processRows,
-	formatValueForDisplay,
-	truncateString,
-	calculateColumnWidth,
-} from "../utils/data-processing.js";
+import { ViewState } from "../types/state.js";
 import {
 	copyToClipboard,
 	formatTableForClipboard,
 } from "../utils/clipboard.js";
 import {
+	getColorForColumn,
 	getColorForDataType,
-	formatValueWithTruncation,
 	getHeaderColor,
+	getPrimaryKeyHeaderColor,
 } from "../utils/color-mapping.js";
-import { getColumnDisplayWidth } from "../utils/column-selection.js";
+import { calculateTableWidth, formatColumnList, getColumnDisplayWidth } from "../utils/column-selection.js";
+import { processRows } from "../utils/data-processing.js";
+import {
+	getFixedPKColumns,
+	getNavigableColumns,
+} from "../utils/pk-utils.js";
 
 const PAGE_SIZE = 50;
+const FALLBACK_TOTAL_VISIBLE_COLUMNS = 5;
+const TABLE_MARGIN = 4;
+const BORDER_WIDTH = 2;
+const INDICATOR_WIDTH = 2;
 
 export const DataPreviewView: React.FC = () => {
 	const dispatch = useAppDispatch();
 	const state = useAppState();
+	const { stdout } = useStdout();
+	const [stdoutWidth, setStdoutWidth] = useState<number | undefined>(
+		stdout?.columns,
+	);
 	const [columnStartIndex, setColumnStartIndex] = useState(0);
 
-	const table = state.selectedTable;
-	const MAX_VISIBLE_COLUMNS = 5;
+	useEffect(() => {
+		if (!stdout) {
+			return;
+		}
 
+		const updateWidth = (): void => {
+			setStdoutWidth(stdout.columns);
+		};
+
+		updateWidth();
+		stdout.on("resize", updateWidth);
+
+		return () => {
+			stdout.off("resize", updateWidth);
+		};
+	}, [stdout]);
+
+	const table = state.selectedTable;
+	const widthLimit = stdoutWidth
+		? Math.max(stdoutWidth - TABLE_MARGIN, 40)
+		: undefined;
+
+	// ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL LOGIC
+	// Data processing hooks
+	const processedRows = useMemo(() => {
+		return processRows(
+			state.dataRows,
+			state.sortConfig,
+			state.filterValue,
+			state.columns,
+		);
+	}, [state.dataRows, state.sortConfig, state.filterValue, state.columns]);
+
+	const rowsToDisplay = processedRows;
+	const cacheKey = tableCacheKey(table);
+
+	// Column processing hooks
+	const fixedPKColumns = useMemo(
+		() => getFixedPKColumns(state.columns),
+		[state.columns],
+	);
+	const navigableColumns = useMemo(
+		() => getNavigableColumns(state.columns),
+		[state.columns],
+	);
+	const fallbackNavigableCapacity = Math.max(
+		1,
+		FALLBACK_TOTAL_VISIBLE_COLUMNS - fixedPKColumns.length,
+	);
+
+	const visibleNavigableColumns = useMemo(() => {
+		if (navigableColumns.length === 0) return [];
+		if (!widthLimit) {
+			const endIndex = Math.min(
+				columnStartIndex + fallbackNavigableCapacity,
+				navigableColumns.length,
+			);
+			return navigableColumns.slice(columnStartIndex, endIndex);
+		}
+
+		const selected: ColumnInfo[] = [];
+
+		for (
+			let idx = columnStartIndex;
+			idx < navigableColumns.length;
+			idx += 1
+		) {
+			const candidateColumn = navigableColumns[idx];
+			const candidateColumns = [
+				...fixedPKColumns,
+				...selected,
+				candidateColumn,
+			];
+			const candidateWidth = calculateTableWidth(candidateColumns, {
+				includeIndicator: true,
+				minimum: 0,
+			});
+
+			if (candidateWidth <= widthLimit) {
+				selected.push(candidateColumn);
+			} else if (selected.length === 0) {
+				// Ensure at least one navigable column is shown even if it exceeds the limit
+				selected.push(candidateColumn);
+				break;
+			} else {
+				break;
+			}
+		}
+
+		return selected;
+	}, [
+		columnStartIndex,
+		fallbackNavigableCapacity,
+		fixedPKColumns,
+		navigableColumns,
+		widthLimit,
+	]);
+
+	const visibleColumns = useMemo(() => {
+		return [...fixedPKColumns, ...visibleNavigableColumns];
+	}, [fixedPKColumns, visibleNavigableColumns]);
+
+	const columnWidths = useMemo(() => {
+		return computeColumnWidths(visibleColumns, widthLimit);
+	}, [visibleColumns, widthLimit]);
+
+	const tableContentWidth = useMemo(() => {
+		return getTableContentWidth(columnWidths);
+	}, [columnWidths]);
+
+	const tableBoxWidth = useMemo(() => {
+		if (widthLimit) return widthLimit;
+		return tableContentWidth > 0 ? tableContentWidth + BORDER_WIDTH : undefined;
+	}, [tableContentWidth, widthLimit]);
+
+	useEffect(() => {
+		if (navigableColumns.length === 0) {
+			if (columnStartIndex !== 0) {
+				setColumnStartIndex(0);
+			}
+			return;
+		}
+
+		const capacity =
+			widthLimit !== undefined && widthLimit !== null
+				? Math.max(visibleNavigableColumns.length, 1)
+				: fallbackNavigableCapacity;
+		const maxStart = Math.max(0, navigableColumns.length - capacity);
+		if (columnStartIndex > maxStart) {
+			setColumnStartIndex(maxStart);
+		}
+	}, [
+		columnStartIndex,
+		fallbackNavigableCapacity,
+		navigableColumns.length,
+		visibleNavigableColumns.length,
+		widthLimit,
+	]);
+
+	// Header information hook
+	const compactHeaderInfo = useMemo(() => {
+		const parts: string[] = [];
+
+		// Table name
+		if (table) {
+			parts.push(renderTableName(table));
+		}
+
+		// Page info
+		const currentPage = Math.floor(state.currentOffset / PAGE_SIZE) + 1;
+		parts.push(`Pg${currentPage}`);
+
+		// Sort info
+		if (state.sortConfig.column && state.sortConfig.direction !== "off") {
+			const arrow = state.sortConfig.direction === "asc" ? "↑" : "↓";
+			parts.push(`Sort:${state.sortConfig.column}${arrow}`);
+		}
+
+		// PK info if present
+		if (fixedPKColumns.length > 0) {
+			parts.push(`PK(${fixedPKColumns.length})`);
+		}
+
+		// Column navigation info
+		if (navigableColumns.length > 0) {
+			parts.push(
+				`${columnStartIndex + 1}-${Math.min(columnStartIndex + Math.max(visibleNavigableColumns.length, 1), navigableColumns.length)}/${navigableColumns.length}`,
+			);
+		}
+
+		// Loading status
+		if (state.loading) parts.push("Loading");
+		if (state.refreshingTableKey === cacheKey) parts.push("Refreshing");
+
+		return parts.join(" • ");
+	}, [
+		table,
+		state.currentOffset,
+		state.sortConfig,
+		state.loading,
+		state.refreshingTableKey,
+		cacheKey,
+		fixedPKColumns.length,
+		navigableColumns.length,
+		columnStartIndex,
+		visibleNavigableColumns.length,
+	]);
+
+	// Effect for data loading
 	useEffect(() => {
 		if (!state.activeConnection || !state.dbType || !table) {
 			dispatch({ type: ActionType.SetView, view: ViewState.Tables });
@@ -79,7 +273,9 @@ export const DataPreviewView: React.FC = () => {
 		table,
 	]);
 
+	// Input handling without early returns
 	useInput((input, key) => {
+		// Guard clause - but no early return, just continue
 		if (!table || !state.activeConnection || !state.dbType) {
 			return;
 		}
@@ -288,19 +484,23 @@ export const DataPreviewView: React.FC = () => {
 			});
 		}
 
-		// Column navigation with arrow keys
-		if (key.leftArrow && columnStartIndex > 0) {
+		// Column navigation with arrow keys (only for navigable columns, PK columns stay fixed)
+		if (
+			key.leftArrow &&
+			columnStartIndex > 0
+		) {
 			setColumnStartIndex(Math.max(0, columnStartIndex - 1));
 			return;
 		}
 		if (
 			key.rightArrow &&
-			state.columns.length > MAX_VISIBLE_COLUMNS &&
-			columnStartIndex < state.columns.length - MAX_VISIBLE_COLUMNS
+			visibleNavigableColumns.length > 0 &&
+			columnStartIndex + visibleNavigableColumns.length <
+				navigableColumns.length
 		) {
 			setColumnStartIndex(
 				Math.min(
-					state.columns.length - MAX_VISIBLE_COLUMNS,
+					navigableColumns.length - visibleNavigableColumns.length,
 					columnStartIndex + 1,
 				),
 			);
@@ -313,9 +513,15 @@ export const DataPreviewView: React.FC = () => {
 		if (
 			"end" in key &&
 			(key as Record<string, unknown>).end &&
-			state.columns.length > MAX_VISIBLE_COLUMNS
+			visibleNavigableColumns.length > 0 &&
+			navigableColumns.length > visibleNavigableColumns.length
 		) {
-			setColumnStartIndex(state.columns.length - MAX_VISIBLE_COLUMNS);
+			setColumnStartIndex(
+				Math.max(
+					0,
+					navigableColumns.length - visibleNavigableColumns.length,
+				),
+			);
 			return;
 		}
 
@@ -361,70 +567,7 @@ export const DataPreviewView: React.FC = () => {
 		}
 	});
 
-	// Process rows with sorting and filtering
-	const processedRows = useMemo(() => {
-		return processRows(
-			state.dataRows,
-			state.sortConfig,
-			state.filterValue,
-			state.columns,
-		);
-	}, [state.dataRows, state.sortConfig, state.filterValue, state.columns]);
-
-	const rowsToDisplay = processedRows;
-
-	// Select visible columns using our new navigation system
-	const visibleColumns = useMemo(() => {
-		const endIndex = Math.min(
-			columnStartIndex + MAX_VISIBLE_COLUMNS,
-			state.columns.length,
-		);
-		return state.columns.slice(columnStartIndex, endIndex);
-	}, [state.columns, columnStartIndex]);
-
-	const totalLoaded = state.currentOffset + processedRows.length;
-	const cacheKey = tableCacheKey(table);
-	const cacheEntry = cacheKey ? state.tableCache[cacheKey] : undefined;
-	const statusMessage = useMemo(() => {
-		const currentPage = Math.floor(state.currentOffset / PAGE_SIZE) + 1;
-		const startRow = state.currentOffset + 1;
-		const endRow = state.currentOffset + rowsToDisplay.length;
-
-		const parts: string[] = [];
-
-		// Row range display
-		parts.push(`Showing rows ${startRow}-${endRow}`);
-
-		// Page number
-		parts.push(`Page ${currentPage}`);
-
-		// More rows indicator
-		if (state.hasMoreRows) {
-			parts.push("More available");
-		} else {
-			parts.push("End reached");
-		}
-
-		// Sort status
-		if (state.sortConfig.column && state.sortConfig.direction !== "off") {
-			const arrow = state.sortConfig.direction === "asc" ? "↑" : "↓";
-			parts.push(`Sort: ${state.sortConfig.column} ${arrow}`);
-		}
-
-		// Filter status
-		if (state.filterValue) {
-			parts.push(`Filter: "${state.filterValue}"`);
-		}
-
-		return parts.join(" • ");
-	}, [
-		state.currentOffset,
-		state.hasMoreRows,
-		rowsToDisplay.length,
-		state.sortConfig,
-		state.filterValue,
-	]);
-
+	// CONDITIONAL JSX RENDERING - All hooks are now called consistently above
 	if (!table) {
 		return (
 			<Box>
@@ -447,90 +590,86 @@ export const DataPreviewView: React.FC = () => {
 		);
 	}
 
+	// Main table view
 	return (
 		<Box flexDirection="column">
-			<Box flexDirection="row" justifyContent="space-between">
-				<Text>
-					<Text color="cyan" bold>
-						{renderTableName(table)}
-					</Text>
-					{state.loading && <Text color="yellow"> • Loading…</Text>}
-					{state.refreshingTableKey === cacheKey && (
-						<Text color="yellow"> • Refreshing…</Text>
-					)}
-				</Text>
-				<Text dimColor> {statusMessage}</Text>
-			</Box>
-
-			{/* Column selection indicator */}
-			<Box marginTop={1} flexDirection="column">
+			{/* Compact header */}
+			<Box flexDirection="row" marginBottom={1}>
 				<Text color="cyan" bold>
-					Columns {columnStartIndex + 1}-
-					{Math.min(
-						columnStartIndex + MAX_VISIBLE_COLUMNS,
-						state.columns.length,
-					)}{" "}
-					of {state.columns.length}
+					{compactHeaderInfo}
 				</Text>
-				{state.columns.length > 0 && (
-					<Text dimColor>
-						{state.columns[columnStartIndex]?.name} •{" "}
-						{state.columns[columnStartIndex]?.dataType}
-						{state.columns[columnStartIndex]?.nullable && " • nullable"}
-						{state.columns[columnStartIndex]?.isPrimaryKey && " • primary key"}
-						{state.columns[columnStartIndex]?.isForeignKey && " • foreign key"}
-					</Text>
-				)}
+				<Text> • </Text>
+				<Text dimColor>
+					{rowsToDisplay.length} rows
+					{state.hasMoreRows && " • more"}
+				</Text>
 			</Box>
 
-			{/* Table header row */}
+			{/* Complete column information */}
 			{visibleColumns.length > 0 && (
-				<Box
-					marginTop={1}
-					flexDirection="column"
-					borderStyle="single"
-					borderColor="gray"
-					paddingX={1}
-				>
-					{renderHeaderRow(visibleColumns, state.sortConfig, columnStartIndex)}
-					<Text dimColor>
-						{"─".repeat(Math.max(40, visibleColumns.length * 15))}
-					</Text>
+				<Box marginBottom={1}>
+					<Text dimColor>Columns: {formatColumnList(visibleColumns)}</Text>
 				</Box>
 			)}
 
-			{/* Data rows */}
-			<Box
-				marginTop={0}
-				flexDirection="column"
-				borderStyle="single"
-				borderColor="gray"
-				paddingX={1}
-			>
-				{rowsToDisplay.length === 0 ? (
-					<Text dimColor>
-						{state.loading ? "Loading rows…" : "No rows available."}
-					</Text>
-				) : (
-					rowsToDisplay.map((row, index) => (
-						<Box key={index}>
-							{renderCondensedRow(
-								row,
-								visibleColumns,
-								index === state.selectedRowIndex,
-								columnStartIndex,
+				{/* Table header row */}
+				{visibleColumns.length > 0 && (
+					<Box
+						flexDirection="column"
+						borderStyle="single"
+						borderColor="gray"
+						paddingX={0}
+						width={tableBoxWidth}
+					>
+						{renderHeaderRow(
+							visibleColumns,
+							columnWidths,
+							state.sortConfig,
+							columnStartIndex,
+							fixedPKColumns.length,
+						)}
+						<Text dimColor>
+							{renderSeparatorLine(
+								columnWidths,
+								widthLimit ? Math.max(widthLimit - BORDER_WIDTH, 0) : undefined,
 							)}
-						</Box>
-					))
+						</Text>
+					</Box>
 				)}
-			</Box>
+
+				{/* Data rows */}
+				<Box
+					flexDirection="column"
+					borderStyle="single"
+					borderColor="gray"
+					paddingX={0}
+					width={tableBoxWidth}
+				>
+					{rowsToDisplay.length === 0 ? (
+						<Text dimColor>
+							{state.loading ? "Loading rows…" : "No rows available."}
+						</Text>
+					) : (
+						rowsToDisplay.map((row, index) => (
+							<Box key={index}>
+								{renderCondensedRow(
+									row,
+									visibleColumns,
+									columnWidths,
+									index === state.selectedRowIndex,
+									columnStartIndex,
+									fixedPKColumns.length,
+								)}
+							</Box>
+						))
+					)}
+				</Box>
 
 			{/* Help text */}
 			<Box marginTop={1}>
 				<Text color="gray" dimColor>
-					↑↓: Select rows | ← →: Navigate columns | Enter: Expand | Home/End:
-					First/Last column | p/n: Prev/Next page | s: Sort | r: Refresh | Esc:
-					Back
+					↑↓Rows ←→Cols Home/End • p/n Pg • s↑↓Sort • rRefresh • EscBack
+					{fixedPKColumns.length > 0 && " • 🔑PKs fixed"}
 				</Text>
 			</Box>
 		</Box>
@@ -547,8 +686,10 @@ function renderTableName(table: TableInfo): string {
 function renderCondensedRow(
 	row: DataRow,
 	columns: ColumnInfo[],
+	columnWidths: number[],
 	isSelected: boolean,
 	columnStartIndex: number,
+	fixedPKCount: number,
 ): React.ReactElement {
 	if (columns.length === 0) {
 		return <Text>{JSON.stringify(row)}</Text>;
@@ -564,28 +705,44 @@ function renderCondensedRow(
 			</Text>,
 		);
 	} else {
-		parts.push(<Text key="indicator"> </Text>);
+		parts.push(<Text key="indicator">{" ".repeat(INDICATOR_WIDTH)}</Text>);
 	}
 
 	// Render each column value with appropriate color and dynamic width
 	columns.forEach((column, idx) => {
 		const value = row[column.name];
-		const color = getColorForDataType(column.dataType, value);
-		const width = getColumnDisplayWidth(column);
-		const formattedValue = formatValueWithTruncation(value, width);
+		const width = columnWidths[idx] ?? 0;
+		const formattedValue = formatDataCell(value, width);
 
 		if (idx > 0) {
+			// Add visual separator between PK and regular columns
+			const isPKSeparator = idx === fixedPKCount && fixedPKCount > 0;
 			parts.push(
-				<Text key={`sep-${idx}`} dimColor>
-					{" "}
-					|{" "}
+				<Text
+					key={`sep-${idx}`}
+					color={isPKSeparator ? "yellow" : undefined}
+					dimColor={!isPKSeparator}
+				>
+					{isPKSeparator ? "‖" : "|"}
 				</Text>,
 			);
 		}
 
-		// Highlight the selected column (first column in view)
-		const isSelectedColumn = idx === 0;
-		const finalColor = isSelectedColumn ? "cyan" : color;
+		// Determine if this column should be highlighted
+		const isPKColumn = idx < fixedPKCount;
+		const isRegularSelectedColumn =
+			idx === fixedPKCount && fixedPKCount > 0 && columnStartIndex === 0;
+		const isOnlySelectedColumn = fixedPKCount === 0 && idx === 0;
+		const isSelectedColumn =
+			isPKColumn || isRegularSelectedColumn || isOnlySelectedColumn;
+
+		// Get appropriate color considering PK status
+		const finalColor = getColorForColumn(
+			column.dataType,
+			value,
+			column.isPrimaryKey || false,
+			isSelectedColumn,
+		);
 
 		parts.push(
 			<Text
@@ -607,46 +764,55 @@ function renderCondensedRow(
  */
 function renderHeaderRow(
 	columns: ColumnInfo[],
+	columnWidths: number[],
 	sortConfig: { column: string | null; direction: "asc" | "desc" | "off" },
 	columnStartIndex: number,
+	fixedPKCount: number,
 ): React.ReactElement {
 	const parts: React.ReactElement[] = [];
 
-	parts.push(<Text key="indicator"> </Text>);
+	parts.push(<Text key="indicator">{" ".repeat(INDICATOR_WIDTH)}</Text>);
 
 	columns.forEach((column, idx) => {
 		if (idx > 0) {
+			// Add visual separator between PK and regular columns
+			const isPKSeparator = idx === fixedPKCount && fixedPKCount > 0;
 			parts.push(
-				<Text key={`sep-${idx}`} dimColor>
-					{" "}
-					|{" "}
+				<Text
+					key={`sep-${idx}`}
+					color={isPKSeparator ? "yellow" : undefined}
+					dimColor={!isPKSeparator}
+				>
+					{isPKSeparator ? "‖" : "|"}
 				</Text>,
 			);
 		}
 
-		const width = getColumnDisplayWidth(column);
-		let columnText = formatValueWithTruncation(
-			column.name.toUpperCase(),
-			width,
-		);
+		const width = columnWidths[idx] ?? 0;
+		const columnText = formatHeaderCell(column, width, sortConfig);
 
-		// Add sort indicator
-		if (sortConfig.column === column.name) {
-			if (sortConfig.direction === "asc") {
-				columnText += " ↑";
-			} else if (sortConfig.direction === "desc") {
-				columnText += " ↓";
-			}
+		// Determine if this column should be highlighted
+		const isPKColumn = idx < fixedPKCount;
+		const isRegularSelectedColumn =
+			idx === fixedPKCount && fixedPKCount > 0 && columnStartIndex === 0;
+		const isOnlySelectedColumn = fixedPKCount === 0 && idx === 0;
+		const isSelectedColumn =
+			isPKColumn || isRegularSelectedColumn || isOnlySelectedColumn;
+
+		// Choose appropriate color
+		let headerColor = getHeaderColor();
+		if (column.isPrimaryKey) {
+			headerColor = getPrimaryKeyHeaderColor();
 		}
-
-		// Highlight the selected column (first column in view)
-		const isSelectedColumn = idx === 0;
+		if (isSelectedColumn) {
+			headerColor = "cyan";
+		}
 
 		parts.push(
 			<Text
 				key={`col-${idx}`}
-				color={isSelectedColumn ? "cyan" : getHeaderColor()}
-				bold={isSelectedColumn}
+				color={headerColor}
+				bold={isSelectedColumn || column.isPrimaryKey}
 			>
 				{columnText}
 			</Text>,
@@ -708,4 +874,115 @@ function renderExpandedRow(
 			<Text dimColor>Esc/q/b: Close</Text>
 		</Box>
 	);
+}
+
+function computeColumnWidths(
+	columns: ColumnInfo[],
+	widthLimit?: number,
+): number[] {
+	if (columns.length === 0) return [];
+
+	const baseWidths = columns.map((column) => getColumnDisplayWidth(column));
+
+	if (!widthLimit) {
+		return baseWidths;
+	}
+
+	const separatorsWidth = Math.max(0, columns.length - 1);
+	const baseContentWidth =
+		INDICATOR_WIDTH +
+		separatorsWidth +
+		baseWidths.reduce((sum, width) => sum + width, 0);
+	const targetContentWidth = Math.max(widthLimit - BORDER_WIDTH, 0);
+
+	if (baseContentWidth >= targetContentWidth) {
+		return baseWidths;
+	}
+
+	let leftover = targetContentWidth - baseContentWidth;
+	const adjusted = [...baseWidths];
+	const adjustableIndexes = columns.map((_, idx) => idx);
+
+	while (leftover > 0 && adjustableIndexes.length > 0) {
+		for (const index of adjustableIndexes) {
+			adjusted[index] += 1;
+			leftover -= 1;
+			if (leftover <= 0) {
+				break;
+			}
+		}
+	}
+
+	return adjusted;
+}
+
+function getTableContentWidth(columnWidths: number[]): number {
+	if (columnWidths.length === 0) {
+		return 0;
+	}
+	const separatorsWidth = Math.max(0, columnWidths.length - 1);
+	const columnsWidth = columnWidths.reduce((sum, width) => sum + width, 0);
+	return INDICATOR_WIDTH + separatorsWidth + columnsWidth;
+}
+
+function renderSeparatorLine(
+	columnWidths: number[],
+	targetContentWidth?: number,
+): string {
+	const contentWidth = getTableContentWidth(columnWidths);
+	const finalWidth =
+		targetContentWidth !== undefined ? targetContentWidth : contentWidth;
+	const length = Math.max(finalWidth, contentWidth);
+	return "─".repeat(Math.max(length, 0));
+}
+
+function truncateToWidth(text: string, width: number): string {
+	if (width <= 0) return "";
+	if (text.length <= width) {
+		return text.padEnd(width, " ");
+	}
+	if (width <= 3) {
+		return text.substring(0, width);
+	}
+	const truncated = text.substring(0, width - 3) + "...";
+	return truncated.padEnd(width, " ");
+}
+
+function formatDataCell(value: unknown, width: number): string {
+	let text: string;
+	if (value === null || value === undefined) {
+		text = "NULL";
+	} else if (typeof value === "object") {
+		try {
+			text = JSON.stringify(value);
+		} catch {
+			text = String(value);
+		}
+	} else {
+		text = String(value);
+	}
+	return truncateToWidth(text, width);
+}
+
+function formatHeaderCell(
+	column: ColumnInfo,
+	width: number,
+	sortConfig: { column: string | null; direction: "asc" | "desc" | "off" },
+): string {
+	let label = column.name;
+
+	if (column.isPrimaryKey) {
+		label = `🔑${label}`;
+	}
+
+	if (sortConfig.column === column.name) {
+		if (sortConfig.direction === "asc") {
+			label = `${label} ↑`;
+		} else if (sortConfig.direction === "desc") {
+			label = `${label} ↓`;
+		}
+	}
+
+	// Maintain previous visual emphasis via coloring; padding handled here
+	return truncateToWidth(label, width);
 }

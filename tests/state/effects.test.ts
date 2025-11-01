@@ -19,6 +19,7 @@ vi.mock("../../src/utils/persistence.js", () => ({
 
 import { beforeEach, describe, expect, it } from "vitest";
 import * as effects from "../../src/state/effects.js";
+
 const {
 	clearConnectionCache,
 	clearTableCacheEntry,
@@ -29,9 +30,10 @@ const {
 	removeSavedConnection,
 	updateSavedConnection,
 } = effects;
-import { ActionType } from "../../src/state/actions.js";
-import { DBType, ViewState, initialAppState } from "../../src/types/state.js";
+
 import { createDatabaseConnection } from "../../src/database/connection.js";
+import { ActionType } from "../../src/state/actions.js";
+import { DBType, initialAppState, ViewState } from "../../src/types/state.js";
 import * as persistence from "../../src/utils/persistence.js";
 
 type Dispatch = (action: any) => void;

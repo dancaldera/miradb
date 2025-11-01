@@ -1,9 +1,9 @@
 import { DBType } from "../types/state.js";
-import type { DatabaseConfig, DatabaseConnection } from "./types.js";
-import { PostgresConnection } from "./postgres.js";
-import { MySQLConnection } from "./mysql.js";
-import { SQLiteConnection } from "./sqlite.js";
 import { ConnectionError } from "./errors.js";
+import { MySQLConnection } from "./mysql.js";
+import { PostgresConnection } from "./postgres.js";
+import { SQLiteConnection } from "./sqlite.js";
+import type { DatabaseConfig, DatabaseConnection } from "./types.js";
 
 export function createDatabaseConnection(
 	config: DatabaseConfig,

@@ -1,3 +1,4 @@
+import type { DatabaseError } from "../database/errors.js";
 import type {
 	ColumnInfo,
 	ColumnVisibilityMode,
@@ -11,7 +12,6 @@ import type {
 	TableInfo,
 	ViewState,
 } from "../types/state.js";
-import type { DatabaseError } from "../database/errors.js";
 
 export enum ActionType {
 	SetView = "SET_VIEW",

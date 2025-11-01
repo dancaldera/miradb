@@ -1,10 +1,10 @@
-import type React from "react";
-import { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import TextInput from "ink-text-input";
+import type React from "react";
+import { useState } from "react";
+import { ActionType } from "../state/actions.js";
 import { useAppDispatch, useAppState } from "../state/context.js";
 import { ViewState } from "../types/state.js";
-import { ActionType } from "../state/actions.js";
 import { ViewBuilder } from "./ViewBuilder.js";
 
 export const RowDetailView: React.FC = () => {

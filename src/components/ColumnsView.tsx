@@ -1,9 +1,9 @@
+import { Box, Text, useInput } from "ink";
 import type React from "react";
 import { useEffect } from "react";
-import { Box, Text, useInput } from "ink";
+import { ActionType } from "../state/actions.js";
 import { useAppDispatch, useAppState } from "../state/context.js";
 import { fetchColumns } from "../state/effects.js";
-import { ActionType } from "../state/actions.js";
 import { ViewState } from "../types/state.js";
 import { ViewBuilder } from "./ViewBuilder.js";
 

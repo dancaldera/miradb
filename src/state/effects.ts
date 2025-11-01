@@ -1,21 +1,24 @@
 import { performance } from "node:perf_hooks";
 import { nanoid } from "nanoid";
 import { createDatabaseConnection } from "../database/connection.js";
+import { ConnectionError, DatabaseError } from "../database/errors.js";
 import { parameterize } from "../database/parameterize.js";
 import type {
 	DatabaseConfig,
 	DatabaseConnection,
 	QueryRow,
 } from "../database/types.js";
-import { ActionType } from "./actions.js";
-import type { AppDispatch } from "./context.js";
 import type {
 	AppState,
 	ColumnInfo,
 	ConnectionInfo,
+	NotificationLevel,
 	QueryHistoryItem,
 	TableInfo,
 } from "../types/state.js";
+import { DBType, ViewState } from "../types/state.js";
+import { processRows } from "../utils/data-processing.js";
+import { exportData, formatExportSummary } from "../utils/export.js";
 import {
 	loadConnections,
 	loadQueryHistory,
@@ -24,12 +27,9 @@ import {
 	saveQueryHistory,
 	saveTableCache,
 } from "../utils/persistence.js";
-import { DBType, ViewState } from "../types/state.js";
+import { ActionType } from "./actions.js";
 import { tableCacheKey } from "./cache.js";
-import type { NotificationLevel } from "../types/state.js";
-import { ConnectionError, DatabaseError } from "../database/errors.js";
-import { exportData, formatExportSummary } from "../utils/export.js";
-import { processRows } from "../utils/data-processing.js";
+import type { AppDispatch } from "./context.js";
 
 export async function initializeApp(dispatch: AppDispatch): Promise<void> {
 	dispatch({ type: ActionType.StartLoading });

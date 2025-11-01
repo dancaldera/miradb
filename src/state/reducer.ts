@@ -1,5 +1,5 @@
 import { produce } from "immer";
-import { ViewState, type AppState, initialAppState } from "../types/state.js";
+import { type AppState, initialAppState, ViewState } from "../types/state.js";
 import { ActionType, type AppAction } from "./actions.js";
 import { tableCacheKey } from "./cache.js";
 

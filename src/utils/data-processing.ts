@@ -1,4 +1,4 @@
-import type { DataRow, ColumnInfo, SortConfig } from "../types/state.js";
+import type { ColumnInfo, DataRow, SortConfig } from "../types/state.js";
 
 export function isNumeric(value: unknown): boolean {
 	if (typeof value === "number") return true;

@@ -1,10 +1,10 @@
-import type React from "react";
-import { useMemo } from "react";
 import { Box, Text } from "ink";
 import SelectInput from "ink-select-input";
-import { DBType } from "../types/state.js";
-import { useAppDispatch, useAppState } from "../state/context.js";
+import type React from "react";
+import { useMemo } from "react";
 import { ActionType } from "../state/actions.js";
+import { useAppDispatch, useAppState } from "../state/context.js";
+import { DBType } from "../types/state.js";
 
 interface DBTypeItem {
 	label: string;

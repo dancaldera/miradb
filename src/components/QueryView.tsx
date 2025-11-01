@@ -1,11 +1,11 @@
-import type React from "react";
-import { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import TextInput from "ink-text-input";
-import { useAppDispatch, useAppState } from "../state/context.js";
-import { ViewState } from "../types/state.js";
+import type React from "react";
+import { useEffect, useState } from "react";
 import { ActionType } from "../state/actions.js";
+import { useAppDispatch, useAppState } from "../state/context.js";
 import { executeQuery } from "../state/effects.js";
+import { ViewState } from "../types/state.js";
 import { ViewBuilder } from "./ViewBuilder.js";
 
 export const QueryView: React.FC = () => {

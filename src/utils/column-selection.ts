@@ -29,37 +29,49 @@ export function getColumnDisplayWidth(column: ColumnInfo): number {
 	const name = column.name.toLowerCase();
 	const type = column.dataType.toLowerCase();
 
+	// Calculate minimum width based on column name length (including PK indicator)
+	const headerLength = column.name.length + (column.isPrimaryKey ? 2 : 0); // +2 for 🔑 emoji
+	const minHeaderWidth = Math.max(headerLength + 2, 6); // +2 padding, minimum 6
+
+	// Get base width from data type
+	let baseWidth: number;
+
 	// IDs and small integers
 	if (column.isPrimaryKey || name.endsWith("_id") || name === "id") {
-		return 8;
+		baseWidth = 6;
 	}
-
-	// Booleans
-	if (type.includes("bool") || type.includes("bit")) {
-		return 6;
+	// Booleans - very compact
+	else if (type.includes("bool") || type.includes("bit")) {
+		baseWidth = 5;
 	}
-
-	// Dates
-	if (type.includes("date") || type.includes("time")) {
-		return 12;
+	// Dates - compact format
+	else if (type.includes("date") || type.includes("time")) {
+		baseWidth = 10;
 	}
-
-	// Email addresses
-	if (name.includes("email")) {
-		return 20;
+	// Email addresses - more compact
+	else if (name.includes("email")) {
+		baseWidth = 15;
 	}
-
-	// Status, role, type - short enums
-	if (
+	// Status, role, type - short enums - compact
+	else if (
 		name.includes("status") ||
 		name.includes("role") ||
 		name.includes("type")
 	) {
-		return 12;
+		baseWidth = 8;
+	}
+	// Short text columns
+	else if (name.includes("name") || name.includes("title")) {
+		baseWidth = 12;
+	}
+	// Default text width
+	else {
+		baseWidth = 10;
 	}
 
-	// Default text width
-	return 15;
+	// Use the larger of header width or base width, but cap at maximum
+	const finalWidth = Math.max(minHeaderWidth, baseWidth);
+	return Math.min(finalWidth, 20); // Reduced maximum width for better table fitting
 }
 
 /**
@@ -206,4 +218,108 @@ export function getNextVisibilityMode(
 		default:
 			return "smart";
 	}
+}
+
+/**
+ * Calculate total table width from visible columns
+ */
+export interface TableWidthOptions {
+	includeBorders?: boolean;
+	includeIndicator?: boolean;
+	minimum?: number;
+}
+
+const DEFAULT_TABLE_MIN_WIDTH = 40;
+const INDICATOR_WIDTH = 2; // Accounts for selection arrow + space
+
+export function calculateTableWidth(
+	columns: ColumnInfo[],
+	options?: TableWidthOptions,
+): number {
+	const includeBorders = options?.includeBorders ?? true;
+	const includeIndicator = options?.includeIndicator ?? true;
+	const minimum = options?.minimum ?? DEFAULT_TABLE_MIN_WIDTH;
+
+	// Sum all column widths plus separators (1 char per separator)
+	const totalWidth = columns.reduce(
+		(sum, column) => sum + getColumnDisplayWidth(column),
+		0,
+	);
+	const separatorWidth = Math.max(0, columns.length - 1); // One separator between each column
+	const indicatorWidth =
+		includeIndicator && columns.length > 0 ? INDICATOR_WIDTH : 0;
+	const borderWidth = includeBorders ? 2 : 0;
+
+	const calculatedWidth =
+		totalWidth + separatorWidth + indicatorWidth + borderWidth;
+
+	if (columns.length === 0) {
+		return Math.max(indicatorWidth + borderWidth, minimum);
+	}
+
+	return Math.max(calculatedWidth, minimum);
+}
+
+/**
+ * Generate appropriate border line for table width
+ */
+export function generateBorderLine(
+	columns: ColumnInfo[],
+	minLength = 30,
+	maxLength?: number,
+): string {
+	const tableWidth = calculateTableWidth(columns, {
+		includeIndicator: true,
+		minimum: 0,
+	});
+	const cappedMax =
+		maxLength !== undefined ? Math.max(maxLength, minLength) : tableWidth;
+	const finalLength = Math.max(Math.min(tableWidth, cappedMax), minLength);
+	return "─".repeat(finalLength);
+}
+
+/**
+ * Format column list for display below table
+ */
+export function formatColumnList(columns: ColumnInfo[]): string {
+	if (columns.length === 0) return "";
+
+	return columns
+		.map((column) => {
+			let name = column.name;
+
+			// Add PK indicator
+			if (column.isPrimaryKey) {
+				name = `${name} (PK)`;
+			}
+
+			// Add data type info (shortened)
+			let typeInfo = "";
+			const type = column.dataType.toLowerCase();
+
+			if (type.includes("varchar") || type.includes("char")) {
+				typeInfo = "text";
+			} else if (type.includes("int")) {
+				typeInfo = "int";
+			} else if (type.includes("bool")) {
+				typeInfo = "bool";
+			} else if (type.includes("date") || type.includes("time")) {
+				typeInfo = type.includes("timestamp") ? "timestamp" : "date";
+			} else if (type.includes("json")) {
+				typeInfo = "json";
+			} else if (type.includes("text")) {
+				typeInfo = "text";
+			} else {
+				// Take first 4 chars of type if it's longer
+				typeInfo = type.substring(0, 4);
+			}
+
+			// Add nullable indicator
+			if (column.nullable) {
+				typeInfo += " (null)";
+			}
+
+			return `${name}: ${typeInfo}`;
+		})
+		.join(" • ");
 }

@@ -1,11 +1,11 @@
 import { Pool } from "pg";
 import { DBType } from "../types/state.js";
+import { ConnectionError, DatabaseError } from "./errors.js";
 import type {
 	DatabaseConfig,
 	DatabaseConnection,
 	QueryResult,
 } from "./types.js";
-import { ConnectionError, DatabaseError } from "./errors.js";
 
 export class PostgresConnection implements DatabaseConnection {
 	public readonly type = DBType.PostgreSQL;

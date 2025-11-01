@@ -1,12 +1,12 @@
-import mysql from "mysql2/promise";
 import type { Pool } from "mysql2/promise";
+import mysql from "mysql2/promise";
 import { DBType } from "../types/state.js";
+import { ConnectionError, DatabaseError } from "./errors.js";
 import type {
 	DatabaseConfig,
 	DatabaseConnection,
 	QueryResult,
 } from "./types.js";
-import { ConnectionError, DatabaseError } from "./errors.js";
 
 export class MySQLConnection implements DatabaseConnection {
 	public readonly type = DBType.MySQL;

@@ -102,6 +102,43 @@ export function getHeaderColor(): DataColor {
 }
 
 /**
+ * Get color specifically for primary key columns (bright and distinctive)
+ */
+export function getPrimaryKeyColor(): DataColor {
+	return "yellow";
+}
+
+/**
+ * Get color for primary key header (more vibrant)
+ */
+export function getPrimaryKeyHeaderColor(): DataColor {
+	return "yellow";
+}
+
+/**
+ * Enhanced color function that considers primary key status
+ */
+export function getColorForColumn(
+	dataType: string,
+	value: unknown,
+	isPrimaryKey: boolean,
+	isSelected: boolean,
+): DataColor {
+	// If selected, use cyan regardless of other factors
+	if (isSelected) {
+		return "cyan";
+	}
+
+	// If primary key, use PK color
+	if (isPrimaryKey) {
+		return getPrimaryKeyColor();
+	}
+
+	// Otherwise use regular data type coloring
+	return getColorForDataType(dataType, value);
+}
+
+/**
  * Detect if a column type is likely a primary key based on naming
  */
 export function isProbablyPrimaryKey(columnName: string): boolean {

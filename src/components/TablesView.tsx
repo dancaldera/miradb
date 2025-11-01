@@ -1,12 +1,12 @@
-import type React from "react";
-import { useEffect, useMemo } from "react";
 import { Box, Text, useInput } from "ink";
 import SelectInput from "ink-select-input";
+import type React from "react";
+import { useEffect, useMemo } from "react";
+import { ActionType } from "../state/actions.js";
 import { useAppDispatch, useAppState } from "../state/context.js";
 import { fetchColumns, fetchTables } from "../state/effects.js";
-import { ActionType } from "../state/actions.js";
-import { ViewState } from "../types/state.js";
 import type { TableInfo } from "../types/state.js";
+import { ViewState } from "../types/state.js";
 
 const buildLabel = (table: TableInfo) => {
 	const schema = table.schema ? `${table.schema}.` : "";

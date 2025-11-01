@@ -1,12 +1,12 @@
 import Database from "better-sqlite3";
 import { DBType } from "../types/state.js";
+import { ConnectionError, DatabaseError } from "./errors.js";
 import type {
 	DatabaseConfig,
 	DatabaseConnection,
 	QueryResult,
 	SQLiteDatabase,
 } from "./types.js";
-import { ConnectionError, DatabaseError } from "./errors.js";
 
 export class SQLiteConnection implements DatabaseConnection {
 	public readonly type = DBType.SQLite;

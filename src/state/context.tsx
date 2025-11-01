@@ -2,8 +2,8 @@ import type React from "react";
 import { createContext, useContext, useMemo, useReducer } from "react";
 import type { AppState } from "../types/state.js";
 import { initialAppState } from "../types/state.js";
-import { appReducer } from "./reducer.js";
 import type { AppAction } from "./actions.js";
+import { appReducer } from "./reducer.js";
 
 export type AppDispatch = (action: AppAction) => void;
 

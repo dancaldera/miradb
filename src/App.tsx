@@ -1,22 +1,22 @@
-import type React from "react";
-import { useCallback, useEffect, useRef } from "react";
 import { Box, Text, useInput } from "ink";
 import Spinner from "ink-spinner";
-import { AppProvider, useAppDispatch, useAppState } from "./state/context.js";
-import { ViewState } from "./types/state.js";
-import { initializeApp } from "./state/effects.js";
-import { ActionType } from "./state/actions.js";
-import { DBTypeView } from "./components/DBTypeView.js";
-import { ConnectionView } from "./components/ConnectionView.js";
-import { TablesView } from "./components/TablesView.js";
-import { DataPreviewView } from "./components/DataPreviewView.js";
-import { SavedConnectionsView } from "./components/SavedConnectionsView.js";
+import type React from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { ColumnsView } from "./components/ColumnsView.js";
-import { QueryView } from "./components/QueryView.js";
-import { QueryHistoryView } from "./components/QueryHistoryView.js";
-import { RowDetailView } from "./components/RowDetailView.js";
-import { RelationshipsView } from "./components/RelationshipsView.js";
+import { ConnectionView } from "./components/ConnectionView.js";
+import { DataPreviewView } from "./components/DataPreviewView.js";
+import { DBTypeView } from "./components/DBTypeView.js";
 import { IndexesView } from "./components/IndexesView.js";
+import { QueryHistoryView } from "./components/QueryHistoryView.js";
+import { QueryView } from "./components/QueryView.js";
+import { RelationshipsView } from "./components/RelationshipsView.js";
+import { RowDetailView } from "./components/RowDetailView.js";
+import { SavedConnectionsView } from "./components/SavedConnectionsView.js";
+import { TablesView } from "./components/TablesView.js";
+import { ActionType } from "./state/actions.js";
+import { AppProvider, useAppDispatch, useAppState } from "./state/context.js";
+import { initializeApp } from "./state/effects.js";
+import { ViewState } from "./types/state.js";
 
 const AppContent: React.FC = () => {
 	const state = useAppState();
