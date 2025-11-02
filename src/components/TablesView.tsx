@@ -24,8 +24,9 @@ export const TablesView: React.FC = () => {
 		if (input === "h" && (state.queryHistory?.length ?? 0) > 0) {
 			dispatch({ type: ActionType.SetView, view: ViewState.QueryHistory });
 		}
-		if (input === "s") {
-			dispatch({ type: ActionType.SetView, view: ViewState.SavedConnections });
+		if (key.escape) {
+			dispatch({ type: ActionType.ClearActiveConnection });
+			dispatch({ type: ActionType.SetView, view: ViewState.Connection });
 		}
 	});
 
@@ -127,8 +128,8 @@ export const TablesView: React.FC = () => {
 			</Box>
 			<Box marginTop={1}>
 				<Text dimColor>
-					Enter: Open column details | q: SQL Query | h: Query History | s:
-					Saved Connections | Esc: Back
+					Enter: Open column details | q: SQL Query | h: Query History | Esc:
+					Disconnect
 				</Text>
 			</Box>
 		</Box>
