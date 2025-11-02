@@ -145,9 +145,9 @@ const ColumnsGrid: React.FC<ColumnsGridProps> = ({
 		if (!terminalWidth) {
 			return undefined;
 		}
-		const horizontalPadding = 8; // Approximate padding + border from ViewBuilder
+		const horizontalPadding = 6; // Approximate padding + border from ViewBuilder
 		const available = Math.max(terminalWidth - horizontalPadding, 40);
-		return Math.floor(available / columnsPerRow);
+		return Math.floor((available - (columnsPerRow - 1) * 2) / columnsPerRow);
 	}, [columnsPerRow, terminalWidth]);
 
 	const gridRows = useMemo(() => {
