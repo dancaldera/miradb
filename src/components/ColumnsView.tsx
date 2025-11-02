@@ -141,15 +141,6 @@ const ColumnsGrid: React.FC<ColumnsGridProps> = ({
 		return 1;
 	}, [terminalWidth]);
 
-	const columnWidth = useMemo(() => {
-		if (!terminalWidth) {
-			return undefined;
-		}
-		const horizontalPadding = 6; // Approximate padding + border from ViewBuilder
-		const available = Math.max(terminalWidth - horizontalPadding, 40);
-		return Math.floor((available - (columnsPerRow - 1) * 2) / columnsPerRow);
-	}, [columnsPerRow, terminalWidth]);
-
 	const gridRows = useMemo(() => {
 		if (columnsPerRow <= 1) {
 			return columns.map((column) => [column]);
@@ -163,43 +154,26 @@ const ColumnsGrid: React.FC<ColumnsGridProps> = ({
 	}, [columns, columnsPerRow]);
 
 	return (
-		<Box flexDirection="column" gap={1}>
+		<Box flexDirection="column">
 			{gridRows.map((row, rowIndex) => (
-				<Box
-					key={`row-${rowIndex}`}
-					flexDirection="row"
-					gap={2}
-					flexWrap="nowrap"
-				>
-					{row.map((column) => (
-						<Box
-							key={column.name}
-							width={columnWidth}
-							flexShrink={0}
-							flexGrow={columnsPerRow === 1 ? 1 : 0}
-						>
-							<ColumnSummary column={column} />
-						</Box>
-					))}
-				</Box>
+				<Text key={`row-${rowIndex}`}>
+					{row.map((column) => formatColumnSummary(column)).join("   ")}
+				</Text>
 			))}
 		</Box>
 	);
 };
 
-const ColumnSummary: React.FC<{ column: ColumnInfoLite }> = ({ column }) => (
-	<Text>
-		<Text color={column.isPrimaryKey ? "yellow" : undefined}>
-			{column.name}
-		</Text>
-		<Text> ({column.dataType})</Text>
-		{!column.nullable && <Text> NOT NULL</Text>}
-		{column.isPrimaryKey && <Text color="yellow"> [PK]</Text>}
-		{column.isForeignKey && column.foreignTable && column.foreignColumn && (
-			<Text>
-				{" "}
-				[FK → {column.foreignTable}.{column.foreignColumn}]
-			</Text>
-		)}
-	</Text>
-);
+function formatColumnSummary(column: ColumnInfoLite): string {
+	const parts: string[] = [`${column.name} (${column.dataType})`];
+	if (!column.nullable) {
+		parts.push("NOT NULL");
+	}
+	if (column.isPrimaryKey) {
+		parts.push("[PK]");
+	}
+	if (column.isForeignKey && column.foreignTable && column.foreignColumn) {
+		parts.push(`[FK → ${column.foreignTable}.${column.foreignColumn}]`);
+	}
+	return parts.join(" ");
+}
