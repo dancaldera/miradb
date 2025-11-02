@@ -1,22 +1,261 @@
 # Mirador
 
-Mirador is a terminal-based database explorer for PostgreSQL, MySQL, and SQLite built with Ink and Bun.
+> A modern, terminal-based database explorer for PostgreSQL, MySQL, and SQLite
+
+Mirador is a powerful TUI (Text User Interface) application that lets you explore, query, and manage your databases directly from your terminal. Built with TypeScript, React (Ink), and Bun for blazing-fast performance.
+
+## Features
+
+- **Multi-Database Support**: Connect to PostgreSQL, MySQL, and SQLite databases
+- **Interactive TUI**: Beautiful terminal UI with keyboard navigation
+- **Connection Management**: Save and manage multiple database connections
+- **Schema Exploration**: Browse tables, columns, and data types
+- **Data Preview**: View and paginate through table data
+- **Query History**: Track your database interactions
+- **Standalone Executable**: Compile to a single binary with no runtime dependencies
+- **Fast & Lightweight**: Built with Bun and optimized for performance
+
+## Quick Start
+
+### Prerequisites
+
+- [Bun](https://bun.sh) 1.0+ installed
+- Node.js 18+ (for npm package usage)
+
+### Installation
+
+#### Option 1: Run from source
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd mirador
+
+# Install dependencies
+bun install
+
+# Run in development mode
+bun run dev
+```
+
+#### Option 2: Build and run executable
+
+```bash
+# Build standalone executable
+bun run build:exe
+
+# Run the executable
+./dist/mirador.sh
+```
+
+#### Option 3: Install globally (after building)
+
+```bash
+# Create installation directory
+sudo mkdir -p /usr/local/lib/mirador
+
+# Copy files
+sudo cp dist/mirador /usr/local/lib/mirador/
+sudo cp dist/yoga.wasm /usr/local/lib/mirador/
+
+# Create symlink (or copy the wrapper script)
+sudo ln -sf /usr/local/lib/mirador/mirador /usr/local/bin/mirador
+
+# Run from anywhere
+mirador
+```
+
+## Usage
+
+### Connecting to a Database
+
+1. **Select Database Type**: Choose PostgreSQL, MySQL, or SQLite
+2. **Enter Connection Details**:
+   - **PostgreSQL/MySQL**: Host, port, database name, username, password
+   - **SQLite**: File path to database
+3. **Save Connection** (optional): Store credentials for quick access later
+
+### Navigating the Interface
+
+- **Arrow Keys** / **j/k**: Navigate through lists
+- **Enter**: Select an option
+- **Esc**: Go back to previous view or quit
+- **Ctrl+S**: Access saved connections
+- **?**: Show help (where available)
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `↑` `↓` or `j` `k` | Navigate up/down |
+| `Enter` | Select item |
+| `Esc` | Go back / Quit |
+| `Ctrl+S` | Saved connections |
+| `Ctrl+C` | Force quit |
 
 ## Development
 
-- `bun run dev` – start the development server with hot reload.
-- `bun run lint`, `bun run format`, `bun run type-check`, `bun run test` – project quality checks.
+### Project Structure
 
-## Building
-
-- `bun run build` – bundles the CLI to `dist/index.js` and produces a standalone executable at `dist/mirador`.
-- `bun run build:bundle` – bundles to JavaScript only (previous build flow).
-- `bun run build:compile` – creates the native Bun executable directly.
-
-After running any build command you can launch the binary with:
-
-```bash
-./dist/mirador
+```
+mirador/
+├── src/
+│   ├── index.tsx              # Entry point
+│   ├── App.tsx                # Main application
+│   ├── components/            # UI components (views)
+│   ├── database/              # Database drivers & connection pooling
+│   ├── state/                 # State management (context + reducer)
+│   ├── types/                 # TypeScript definitions
+│   └── utils/                 # Utilities & persistence
+├── dist/                      # Build output
+├── CLAUDE.md                  # Project context for AI assistants
+├── EXECUTABLE.md              # Executable distribution guide
+└── README.md                  # This file
 ```
 
-The application header now includes the current package version so you can quickly verify which build you are running.
+### Available Commands
+
+```bash
+# Development
+bun run dev              # Start with hot-reload
+bun run start            # Run built version
+
+# Building
+bun run build            # Full build (bundle + executable)
+bun run build:bundle     # Bundle to JavaScript only
+bun run build:compile    # Create standalone executable
+bun run build:exe        # Alias for build:compile
+
+# Code Quality
+bun run lint             # Run Biome linter
+bun run lint:fix         # Fix linting issues
+bun run format           # Check code formatting
+bun run format:fix       # Format code
+bun run check            # Run all checks and fixes
+bun run type-check       # TypeScript type checking
+
+# Testing
+bun run test             # Run tests
+bun run test:coverage    # Run tests with coverage
+```
+
+### Architecture
+
+Mirador uses a modern React-based architecture:
+
+- **UI Framework**: [Ink](https://github.com/vadimdemedes/ink) - React for CLIs
+- **State Management**: React Context + useReducer with Immer
+- **Database Drivers**:
+  - PostgreSQL: `pg`
+  - MySQL: `mysql2`
+  - SQLite: `bun:sqlite`
+- **Build Tools**: esbuild (bundling) + Bun (compilation)
+- **Type Safety**: TypeScript with strict mode + Zod validation
+
+### Key Technologies
+
+- **TypeScript**: Strict typing for reliability
+- **React/Ink**: Component-based TUI development
+- **Immer**: Immutable state updates
+- **Connection Pooling**: Optimized database performance
+- **Zod**: Runtime validation for configuration
+
+## Building for Distribution
+
+### Creating a Standalone Executable
+
+```bash
+# Build the executable
+bun run build:exe
+```
+
+This creates:
+- `dist/mirador` - The executable (~59MB)
+- `dist/yoga.wasm` - Required WASM file
+- `dist/mirador.sh` - Wrapper script
+
+See [EXECUTABLE.md](./EXECUTABLE.md) for detailed distribution instructions.
+
+### Platform Support
+
+Current builds are for:
+- macOS (ARM64 - Apple Silicon)
+
+To build for other platforms, run the build command on the target platform.
+
+## Configuration
+
+Mirador stores configuration in `~/.mirador/`:
+- `connections.json` - Saved database connections
+- `query_history.json` - Query execution history
+
+## Troubleshooting
+
+### "Cannot find module './yoga.wasm'" error
+
+Use the wrapper script instead of running the executable directly:
+
+```bash
+./dist/mirador.sh    # ✅ Correct
+./dist/mirador       # ❌ Will fail from outside dist/
+```
+
+### Connection Issues
+
+- **PostgreSQL/MySQL**: Ensure the database server is running and accessible
+- **SQLite**: Verify the file path is correct and you have read permissions
+- Check firewall settings if connecting to remote databases
+
+### Permission Denied
+
+Make the files executable:
+
+```bash
+chmod +x dist/mirador
+chmod +x dist/mirador.sh
+```
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Development Guidelines
+
+- Follow TypeScript strict mode
+- Use Biome for linting and formatting (`bun run check`)
+- Add tests for new features
+- Update documentation as needed
+
+## Migration Notes
+
+This project is a **TypeScript rewrite** of the original Go version. It preserves all functionality while leveraging the Node.js ecosystem and React's component model.
+
+**Original (Go)** → **Current (TypeScript)**
+- bubbletea → Ink (React for CLIs)
+- Go channels/goroutines → async/await with Promises
+- Update/View pattern → React hooks + state management
+- sql.DB → Driver-specific connection pools
+
+## License
+
+MIT License - see [LICENSE](./LICENSE) file for details
+
+## Acknowledgments
+
+- Built with [Ink](https://github.com/vadimdemedes/ink) by Vadim Demedes
+- Powered by [Bun](https://bun.sh) runtime
+- Inspired by database exploration tools like pgcli, mycli, and DBeaver
+
+## Support
+
+For issues, questions, or contributions, please visit the [GitHub repository](<repository-url>).
+
+---
+
+Made with ❤️ for terminal enthusiasts and database developers
