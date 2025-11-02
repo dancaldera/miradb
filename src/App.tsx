@@ -19,6 +19,7 @@ import { ActionType } from "./state/actions.js";
 import { AppProvider, useAppDispatch, useAppState } from "./state/context.js";
 import { initializeApp } from "./state/effects.js";
 import { ViewState } from "./types/state.js";
+import { APP_VERSION } from "./version.js";
 
 const AppContent: React.FC = () => {
 	const state = useAppState();
@@ -141,7 +142,7 @@ const AppContent: React.FC = () => {
 	return (
 		<Box flexDirection="column" paddingX={1} paddingY={1}>
 			<Text color="cyan" bold>
-				Mirador
+				Mirador v{APP_VERSION}
 			</Text>
 			{state.loading && (
 				<Box marginTop={1}>

@@ -9,7 +9,9 @@
 	},
 	"scripts": {
 		"dev": "bun --watch src/index.tsx",
-		"build": "esbuild src/index.tsx --bundle --platform=node --target=node18 --outfile=dist/index.js --format=esm --minify --external:react-devtools-core --external:bun:sqlite",
+		"build": "bun run build:bundle && bun run build:compile",
+		"build:bundle": "esbuild src/index.tsx --bundle --platform=node --target=node18 --outfile=dist/index.js --format=esm --minify --external:react-devtools-core --external:bun:sqlite",
+		"build:compile": "bun build src/index.tsx --compile --outfile dist/mirador --target bun --minify --external react-devtools-core --external bun:sqlite",
 		"start": "bun dist/index.js",
 		"test": "bun test",
 		"test:coverage": "bun test --coverage",
