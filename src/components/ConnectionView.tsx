@@ -1,4 +1,4 @@
-import { Box, Text, useInput } from "ink";
+import { Box, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -18,6 +18,7 @@ export const ConnectionView: React.FC = () => {
 	const state = useAppState();
 	const [connectionString, setConnectionString] = useState("");
 	const [localError, setLocalError] = useState<string | null>(null);
+	const { exit } = useApp();
 
 	useEffect(() => {
 		if (!state.dbType) {
@@ -43,7 +44,7 @@ export const ConnectionView: React.FC = () => {
 			dispatch({ type: ActionType.SetView, view: ViewState.SavedConnections });
 		}
 		if (key.escape) {
-			dispatch({ type: ActionType.SetView, view: ViewState.DBType });
+			exit();
 		}
 	});
 
@@ -90,8 +91,7 @@ export const ConnectionView: React.FC = () => {
 				</Text>
 				<Text dimColor>
 					Shortcuts: Ctrl+S saved connections
-					{state.savedConnections.length === 0 ? " (none yet)" : ""} • Esc
-					change database
+					{state.savedConnections.length === 0 ? " (none yet)" : ""} • Esc quit
 				</Text>
 			</Box>
 			{localError && (
