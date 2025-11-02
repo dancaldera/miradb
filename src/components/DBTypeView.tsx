@@ -40,6 +40,9 @@ export const DBTypeView: React.FC = () => {
 
 		if (key.escape) {
 			exit();
+			setImmediate(() => {
+				process.exit(0);
+			});
 		}
 	});
 
