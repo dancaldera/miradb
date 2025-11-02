@@ -28,7 +28,7 @@ bun run type-check   # Run TypeScript type checking
 - **Language**: TypeScript 5.3+ with strict typing
 - **UI Framework**: Ink (React for terminal applications)
 - **State Management**: React Context + useReducer with Immer for immutability
-- **Database Drivers**: `pg` (PostgreSQL), `mysql2` (MySQL), `better-sqlite3` (SQLite)
+- **Database Drivers**: `pg` (PostgreSQL), `mysql2` (MySQL), `bun:sqlite` (SQLite)
 - **Build Tool**: esbuild for fast compilation
 - **Testing**: Vitest for unit testing
 - **Validation**: Zod for runtime type validation
@@ -113,7 +113,7 @@ Key state patterns:
 - Connections are stored in `~/.mirador/connections.json`
 - Query history persisted in `~/.mirador/query_history.json`
 - Connection pooling implemented for PostgreSQL and MySQL
-- SQLite uses synchronous better-sqlite3 with async wrapper
+- SQLite uses Bun's built-in `bun:sqlite` driver with async wrapper
 
 ### State Persistence
 

@@ -14,16 +14,16 @@ import { RowDetailView } from "./components/RowDetailView.js";
 import { SavedConnectionsView } from "./components/SavedConnectionsView.js";
 import { SearchView } from "./components/SearchView.js";
 import { TablesView } from "./components/TablesView.js";
+import { clearInkScreen } from "./inkControl.js";
 import { ActionType } from "./state/actions.js";
 import { AppProvider, useAppDispatch, useAppState } from "./state/context.js";
 import { initializeApp } from "./state/effects.js";
 import { ViewState } from "./types/state.js";
-import { clearInkScreen } from "./inkControl.js";
 
 const AppContent: React.FC = () => {
-    const state = useAppState();
-    const dispatch = useAppDispatch();
-    const scheduledNotifications = useRef(new Set<string>());
+	const state = useAppState();
+	const dispatch = useAppDispatch();
+	const scheduledNotifications = useRef(new Set<string>());
 	const previousViewRef = useRef<ViewState | null>(null);
 
 	if (

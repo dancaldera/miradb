@@ -1,9 +1,9 @@
-import type DatabaseConstructor from "better-sqlite3";
+import type { Database as BunDatabase } from "bun:sqlite";
 import type { Pool as MySQLPool } from "mysql2/promise";
 import type { Pool as PostgresPool } from "pg";
 import type { DBType } from "../types/state.js";
 
-export type SQLiteDatabase = InstanceType<typeof DatabaseConstructor>;
+export type SQLiteDatabase = BunDatabase;
 
 export interface DatabaseConfig {
 	type: DBType;

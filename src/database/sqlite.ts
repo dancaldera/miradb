@@ -1,4 +1,5 @@
-import Database from "better-sqlite3";
+import type { SQLQueryBindings } from "bun:sqlite";
+import { Database } from "bun:sqlite";
 import { DBType } from "../types/state.js";
 import { ConnectionError, DatabaseError } from "./errors.js";
 import type {
@@ -17,9 +18,9 @@ export class SQLiteConnection implements DatabaseConnection {
 	async connect(): Promise<void> {
 		try {
 			this.db = new Database(this.config.connectionString, {
-				fileMustExist: false,
+				create: true,
 			});
-			this.db.pragma("journal_mode = WAL");
+			this.db.exec("PRAGMA journal_mode = WAL");
 		} catch (error) {
 			throw new ConnectionError(
 				"Failed to open SQLite database.",
@@ -37,8 +38,10 @@ export class SQLiteConnection implements DatabaseConnection {
 			await this.connect();
 		}
 		try {
-			const statement = this.db!.prepare(sql);
-			const rows = statement.all(...params) as T[];
+			const statement = this.db!.query(sql);
+			const rows = params.length
+				? (statement.all(...(params as SQLQueryBindings[])) as T[])
+				: (statement.all() as T[]);
 			return {
 				rows,
 				rowCount: rows.length,
@@ -57,8 +60,12 @@ export class SQLiteConnection implements DatabaseConnection {
 			await this.connect();
 		}
 		try {
-			const statement = this.db!.prepare(sql);
-			statement.run(...params);
+			const statement = this.db!.query(sql);
+			if (params.length > 0) {
+				statement.run(...(params as SQLQueryBindings[]));
+			} else {
+				statement.run();
+			}
 		} catch (error) {
 			throw new DatabaseError(
 				"SQLite statement execution failed.",

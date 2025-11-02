@@ -24,14 +24,17 @@ vi.mock("mysql2/promise", () => ({
 	},
 }));
 
-vi.mock("better-sqlite3", () => ({
+vi.mock("bun:sqlite", () => ({
 	__esModule: true,
-	default: class {
-		pragma() {}
-		prepare() {
+	Database: class {
+		exec() {}
+		query() {
 			return {
 				all: () => [],
-				run: () => {},
+				run: () => ({
+					lastInsertRowid: 0,
+					changes: 0,
+				}),
 			};
 		}
 		close() {}

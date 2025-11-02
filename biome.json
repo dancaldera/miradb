@@ -1,5 +1,9 @@
 {
 	"$schema": "https://biomejs.dev/schemas/latest/schema.json",
+	"files": {
+		"maxSize": 3000000,
+		"includes": ["src/**/*", "tests/**/*", "AGENTS.md", "README.md"]
+	},
 	"formatter": {
 		"enabled": true
 	},

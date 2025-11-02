@@ -90,8 +90,8 @@ export const ConnectionView: React.FC = () => {
 				</Text>
 				<Text dimColor>
 					Shortcuts: Ctrl+S saved connections
-					{state.savedConnections.length === 0 ? " (none yet)" : ""} • Esc change
-					database
+					{state.savedConnections.length === 0 ? " (none yet)" : ""} • Esc
+					change database
 				</Text>
 			</Box>
 			{localError && (

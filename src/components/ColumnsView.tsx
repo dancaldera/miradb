@@ -127,7 +127,10 @@ interface ColumnsGridProps {
 	terminalWidth?: number;
 }
 
-const ColumnsGrid: React.FC<ColumnsGridProps> = ({ columns, terminalWidth }) => {
+const ColumnsGrid: React.FC<ColumnsGridProps> = ({
+	columns,
+	terminalWidth,
+}) => {
 	const columnsPerRow = useMemo(() => {
 		if (!terminalWidth) {
 			return 2;
@@ -201,13 +204,11 @@ const ColumnSummary: React.FC<{ column: ColumnInfoLite }> = ({ column }) => (
 		<Text> ({column.dataType})</Text>
 		{!column.nullable && <Text> NOT NULL</Text>}
 		{column.isPrimaryKey && <Text color="yellow"> [PK]</Text>}
-		{column.isForeignKey &&
-			column.foreignTable &&
-			column.foreignColumn && (
-				<Text>
-					{" "}
-					[FK → {column.foreignTable}.{column.foreignColumn}]
-				</Text>
-			)}
+		{column.isForeignKey && column.foreignTable && column.foreignColumn && (
+			<Text>
+				{" "}
+				[FK → {column.foreignTable}.{column.foreignColumn}]
+			</Text>
+		)}
 	</Text>
 );

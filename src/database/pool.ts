@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 import mysql from "mysql2/promise";
 import { Pool as PostgresPool } from "pg";
 import { DBType } from "../types/state.js";
@@ -31,7 +31,7 @@ export function createPool(
 		}
 		case DBType.SQLite: {
 			try {
-				const db = new Database(connectionString, { fileMustExist: false });
+				const db = new Database(connectionString, { create: true });
 				return { client: "sqlite", db };
 			} catch (error) {
 				throw new ConnectionError(
