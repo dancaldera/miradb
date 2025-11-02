@@ -16,6 +16,7 @@ import type {
 export enum ActionType {
 	SetView = "SET_VIEW",
 	SelectDBType = "SELECT_DB_TYPE",
+	SetDBType = "SET_DB_TYPE",
 	StartLoading = "START_LOADING",
 	StopLoading = "STOP_LOADING",
 	SetError = "SET_ERROR",
@@ -58,6 +59,7 @@ export enum ActionType {
 export type AppAction =
 	| { type: ActionType.SetView; view: ViewState }
 	| { type: ActionType.SelectDBType; dbType: DBType }
+	| { type: ActionType.SetDBType; dbType: DBType }
 	| { type: ActionType.StartLoading }
 	| { type: ActionType.StopLoading }
 	| { type: ActionType.SetError; error: string | DatabaseError }

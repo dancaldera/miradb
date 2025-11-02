@@ -29,6 +29,10 @@ export function appReducer(
 				draft.currentView = ViewState.Connection;
 				break;
 
+			case ActionType.SetDBType:
+				draft.dbType = action.dbType;
+				break;
+
 			case ActionType.StartLoading:
 				draft.loading = true;
 				break;

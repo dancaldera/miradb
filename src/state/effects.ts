@@ -76,6 +76,7 @@ export async function connectToDatabase(
 	state: AppState,
 	config: DatabaseConfig,
 ): Promise<void> {
+	dispatch({ type: ActionType.SetDBType, dbType: config.type });
 	dispatch({ type: ActionType.StartLoading });
 
 	try {
