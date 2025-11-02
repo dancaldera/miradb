@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { ActionType } from "../../src/state/actions.js";
 import { appReducer } from "../../src/state/reducer.js";
 import { DBType, initialAppState, ViewState } from "../../src/types/state.js";

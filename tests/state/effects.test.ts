@@ -1,4 +1,5 @@
-import { vi } from "vitest";
+import type { Mock } from "bun:test";
+import { vi } from "bun:test";
 
 vi.mock("../../src/database/connection.js", () => ({
 	createDatabaseConnection: vi.fn(),
@@ -17,7 +18,7 @@ vi.mock("../../src/utils/persistence.js", () => ({
 	saveTableCache: vi.fn(async () => {}),
 }));
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
 import * as effects from "../../src/state/effects.js";
 
 const {
@@ -36,11 +37,34 @@ import { ActionType } from "../../src/state/actions.js";
 import { DBType, initialAppState, ViewState } from "../../src/types/state.js";
 import * as persistence from "../../src/utils/persistence.js";
 
+const createDatabaseConnectionMock = createDatabaseConnection as Mock<
+	typeof createDatabaseConnection
+>;
+const loadConnectionsMock = persistence.loadConnections as Mock<
+	typeof persistence.loadConnections
+>;
+const loadQueryHistoryMock = persistence.loadQueryHistory as Mock<
+	typeof persistence.loadQueryHistory
+>;
+const loadTableCacheMock = persistence.loadTableCache as Mock<
+	typeof persistence.loadTableCache
+>;
+const saveConnectionsMock = persistence.saveConnections as Mock<
+	typeof persistence.saveConnections
+>;
+const saveQueryHistoryMock = persistence.saveQueryHistory as Mock<
+	typeof persistence.saveQueryHistory
+>;
+const saveTableCacheMock = persistence.saveTableCache as Mock<
+	typeof persistence.saveTableCache
+>;
+
 type Dispatch = (action: any) => void;
 
 describe("effects", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		createDatabaseConnectionMock.mockReset();
 	});
 
 	it("connectToDatabase establishes connection, persists it, and loads tables", async () => {
@@ -71,8 +95,7 @@ describe("effects", () => {
 			close: vi.fn(async () => {}),
 		};
 
-		const mockedCreate = vi.mocked(createDatabaseConnection);
-		mockedCreate
+		createDatabaseConnectionMock
 			.mockImplementationOnce(() => connectionStub as any)
 			.mockImplementationOnce(() => tablesConnectionStub as any);
 
@@ -110,12 +133,12 @@ describe("effects", () => {
 			updatedAt: new Date().toISOString(),
 		};
 
-		vi.mocked(persistence.loadConnections).mockResolvedValueOnce({
+		loadConnectionsMock.mockResolvedValueOnce({
 			connections: [legacyConnection],
 			normalized: 1,
 			skipped: 0,
 		});
-		vi.mocked(persistence.loadQueryHistory).mockResolvedValueOnce([]);
+		loadQueryHistoryMock.mockResolvedValueOnce([]);
 
 		await effects.initializeApp(dispatch);
 
@@ -150,7 +173,7 @@ describe("effects", () => {
 			close: vi.fn(async () => {}),
 		};
 
-		vi.mocked(createDatabaseConnection).mockReturnValueOnce(
+		createDatabaseConnectionMock.mockReturnValueOnce(
 			sqliteConnectionStub as any,
 		);
 
@@ -190,7 +213,7 @@ describe("effects", () => {
 			close: vi.fn(async () => {}),
 		};
 
-		vi.mocked(createDatabaseConnection).mockReturnValueOnce(
+		createDatabaseConnectionMock.mockReturnValueOnce(
 			columnsConnectionStub as any,
 		);
 
@@ -263,9 +286,7 @@ describe("effects", () => {
 			close: vi.fn(async () => {}),
 		};
 
-		vi.mocked(createDatabaseConnection).mockReturnValueOnce(
-			rowsConnectionStub as any,
-		);
+		createDatabaseConnectionMock.mockReturnValueOnce(rowsConnectionStub as any);
 
 		const state = {
 			...initialAppState,
@@ -340,9 +361,7 @@ describe("effects", () => {
 			close: vi.fn(async () => {}),
 		};
 
-		vi.mocked(createDatabaseConnection).mockReturnValueOnce(
-			rowsConnectionStub as any,
-		);
+		createDatabaseConnectionMock.mockReturnValueOnce(rowsConnectionStub as any);
 
 		const state = {
 			...initialAppState,
@@ -427,8 +446,7 @@ describe("effects", () => {
 			close: vi.fn(async () => {}),
 		};
 
-		const mockedCreate = vi.mocked(createDatabaseConnection);
-		mockedCreate
+		createDatabaseConnectionMock
 			.mockImplementationOnce(() => columnConnectionStub as any)
 			.mockImplementationOnce(() => dataConnectionStub as any);
 
@@ -522,8 +540,7 @@ describe("effects", () => {
 
 	it("throttles repeated table data refreshes", async () => {
 		const dispatch = vi.fn() as Dispatch;
-		const mockedCreate = vi.mocked(createDatabaseConnection);
-		mockedCreate.mockClear();
+		createDatabaseConnectionMock.mockClear();
 
 		const state = {
 			...initialAppState,
@@ -731,7 +748,7 @@ describe("effects", () => {
 			close: vi.fn(async () => {}),
 		};
 
-		vi.mocked(createDatabaseConnection)
+		createDatabaseConnectionMock
 			.mockImplementationOnce(() => connectionStub as any)
 			.mockImplementationOnce(() => tableStub as any);
 
@@ -791,7 +808,7 @@ describe("effects", () => {
 			close: vi.fn(async () => {}),
 		};
 
-		vi.mocked(createDatabaseConnection)
+		createDatabaseConnectionMock
 			.mockImplementationOnce(() => connectionStub as any)
 			.mockImplementationOnce(() => tableStub as any);
 

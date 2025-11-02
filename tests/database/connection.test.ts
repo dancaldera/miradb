@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "bun:test";
 import { createDatabaseConnection } from "../../src/database/connection.js";
 import { DBType } from "../../src/types/state.js";
 

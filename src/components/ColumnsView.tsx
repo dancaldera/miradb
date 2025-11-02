@@ -156,17 +156,8 @@ const ColumnsGrid: React.FC<ColumnsGridProps> = ({
 		}
 
 		const rows: ColumnInfoLite[][] = [];
-		const rowsPerColumn = Math.ceil(columns.length / columnsPerRow);
-
-		for (let rowIndex = 0; rowIndex < rowsPerColumn; rowIndex += 1) {
-			const row: ColumnInfoLite[] = [];
-			for (let columnIndex = 0; columnIndex < columnsPerRow; columnIndex += 1) {
-				const itemIndex = columnIndex * rowsPerColumn + rowIndex;
-				if (itemIndex < columns.length) {
-					row.push(columns[itemIndex]);
-				}
-			}
-			rows.push(row);
+		for (let index = 0; index < columns.length; index += columnsPerRow) {
+			rows.push(columns.slice(index, index + columnsPerRow));
 		}
 		return rows;
 	}, [columns, columnsPerRow]);

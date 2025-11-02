@@ -26,9 +26,6 @@ export const RowDetailView: React.FC = () => {
 	);
 
 	const [selectedFieldIndex, setSelectedFieldIndex] = useState(0);
-	const [expandedFieldIndex, setExpandedFieldIndex] = useState<number | null>(
-		null,
-	);
 	const [valueViewerOpen, setValueViewerOpen] = useState(false);
 	const [valueViewerScrollOffset, setValueViewerScrollOffset] = useState(0);
 
@@ -53,21 +50,13 @@ export const RowDetailView: React.FC = () => {
 	useEffect(() => {
 		if (fields.length === 0) {
 			setSelectedFieldIndex(0);
-			setExpandedFieldIndex(null);
 			return;
 		}
 
 		if (selectedFieldIndex >= fields.length) {
 			setSelectedFieldIndex(fields.length - 1);
 		}
-
-		if (
-			expandedFieldIndex !== null &&
-			(expandedFieldIndex >= fields.length || expandedFieldIndex < 0)
-		) {
-			setExpandedFieldIndex(null);
-		}
-	}, [fields.length, selectedFieldIndex, expandedFieldIndex]);
+	}, [fields.length, selectedFieldIndex]);
 	const selectedField = fields[selectedFieldIndex] ?? null;
 	const valueViewerLines = selectedField
 		? formatFullValue(selectedField.value)
@@ -83,9 +72,6 @@ export const RowDetailView: React.FC = () => {
 	const pageStart = currentPage * FIELDS_PER_PAGE;
 	const pageEnd = Math.min(pageStart + FIELDS_PER_PAGE, fields.length);
 	const visibleFields = fields.slice(pageStart, pageEnd);
-
-	const expandedField =
-		expandedFieldIndex !== null ? (fields[expandedFieldIndex] ?? null) : null;
 
 	useEffect(() => {
 		if (!valueViewerOpen) {
@@ -243,17 +229,9 @@ export const RowDetailView: React.FC = () => {
 			return;
 		}
 
-		if (key.return || input === " ") {
-			setExpandedFieldIndex((prev) =>
-				prev === selectedFieldIndex ? null : selectedFieldIndex,
-			);
-			return;
-		}
-
 		if ((input === "v" || input === "V") && selectedField) {
 			setValueViewerOpen(true);
 			setValueViewerScrollOffset(0);
-			setExpandedFieldIndex(selectedFieldIndex);
 			return;
 		}
 
@@ -373,7 +351,7 @@ export const RowDetailView: React.FC = () => {
 		<ViewBuilder
 			title="Row Details"
 			subtitle={subtitleParts.join(" • ")}
-			footer="↑/↓ Field • ←/→ Page • PgUp/PgDn Jump • Enter Expand • v Value view • c Copy value • C Copy row • Esc Back"
+			footer="↑/↓ Field • ←/→ Page • PgUp/PgDn Jump • v View value • c Copy value • C Copy row • Esc Back"
 		>
 			<Box flexDirection="column">
 				<Box
@@ -393,7 +371,6 @@ export const RowDetailView: React.FC = () => {
 				{visibleFields.map(({ column, value }, index) => {
 					const globalIndex = pageStart + index;
 					const isSelected = globalIndex === selectedFieldIndex;
-					const isExpanded = globalIndex === expandedFieldIndex;
 					const valueColor = getValueColor(column, value, isSelected);
 					const preview = formatPreviewValue(value, previewWidth);
 
@@ -401,14 +378,11 @@ export const RowDetailView: React.FC = () => {
 						<Box
 							key={column.name}
 							flexDirection="column"
-							paddingX={1}
-							paddingY={0}
 							marginBottom={1}
-							borderStyle={isSelected ? "single" : undefined}
-							borderColor={isSelected ? "cyan" : undefined}
+							paddingLeft={isSelected ? 0 : 1}
 						>
 							<Box flexDirection="row">
-								<Text color={isSelected ? "white" : "cyan"} bold>
+								<Text color={isSelected ? "cyan" : "gray"}>
 									{isSelected ? "▶ " : "  "}
 								</Text>
 								<Text color={isSelected ? "white" : "cyan"} bold={isSelected}>
@@ -421,44 +395,12 @@ export const RowDetailView: React.FC = () => {
 								</Text>
 							</Box>
 
-							<Box marginLeft={isSelected ? 2 : 4}>
+							<Box marginLeft={isSelected ? 2 : 3}>
 								<Text color={valueColor}>{preview}</Text>
-								{isExpanded && (
-									<Text color="gray" dimColor>
-										{" "}
-										(full value below)
-									</Text>
-								)}
 							</Box>
 						</Box>
 					);
 				})}
-
-				{expandedField && (
-					<Box
-						flexDirection="column"
-						borderStyle="round"
-						borderColor="gray"
-						paddingX={1}
-						paddingY={0}
-					>
-						<Text color="cyan" bold>
-							{expandedField.column.name} — full value
-						</Text>
-						<Box marginTop={1} flexDirection="column">
-							{formatFullValue(expandedField.value).map((line, idx) => (
-								<Text key={idx} color="white">
-									{line}
-								</Text>
-							))}
-						</Box>
-						<Box marginTop={1}>
-							<Text color="gray" dimColor>
-								Enter/Space collapse • v view value • c copy value • Esc back
-							</Text>
-						</Box>
-					</Box>
-				)}
 
 				{totalPages > 1 && (
 					<Box marginTop={1}>

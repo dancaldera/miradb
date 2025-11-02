@@ -11,8 +11,8 @@
 		"dev": "bun --watch src/index.tsx",
 		"build": "esbuild src/index.tsx --bundle --platform=node --target=node18 --outfile=dist/index.js --format=esm --minify --external:react-devtools-core --external:bun:sqlite",
 		"start": "bun dist/index.js",
-		"test": "vitest",
-		"test:coverage": "vitest --coverage",
+		"test": "bun test",
+		"test:coverage": "bun test --coverage",
 		"lint": "biome lint",
 		"lint:fix": "biome lint --write .",
 		"format": "biome format",
@@ -52,10 +52,8 @@
 		"@types/node": "^20.10.6",
 		"@types/pg": "^8.10.9",
 		"@types/react": "^18.2.46",
-		"@vitest/coverage-v8": "^1.1.0",
 		"esbuild": "^0.19.11",
 		"bun-types": "^1.3.1",
-		"typescript": "^5.3.3",
-		"vitest": "^1.1.0"
+		"typescript": "^5.3.3"
 	}
 }
