@@ -156,24 +156,36 @@ const ColumnsGrid: React.FC<ColumnsGridProps> = ({
 	return (
 		<Box flexDirection="column">
 			{gridRows.map((row, rowIndex) => (
-				<Text key={`row-${rowIndex}`}>
-					{row.map((column) => formatColumnSummary(column)).join("   ")}
-				</Text>
+				<Box key={`row-${rowIndex}`} flexDirection="row">
+					{row.map((column, columnIndex) => (
+						<Box
+							key={column.name}
+							marginRight={columnIndex < row.length - 1 ? 3 : 0}
+						>
+							<ColumnSummary column={column} />
+						</Box>
+					))}
+				</Box>
 			))}
 		</Box>
 	);
 };
 
-function formatColumnSummary(column: ColumnInfoLite): string {
-	const parts: string[] = [`${column.name} (${column.dataType})`];
-	if (!column.nullable) {
-		parts.push("NOT NULL");
-	}
-	if (column.isPrimaryKey) {
-		parts.push("[PK]");
-	}
-	if (column.isForeignKey && column.foreignTable && column.foreignColumn) {
-		parts.push(`[FK → ${column.foreignTable}.${column.foreignColumn}]`);
-	}
-	return parts.join(" ");
-}
+const ColumnSummary: React.FC<{ column: ColumnInfoLite }> = ({ column }) => {
+	return (
+		<Text>
+			<Text color={column.isPrimaryKey ? "yellow" : "cyan"} bold>
+				{column.name}
+			</Text>
+			<Text color="gray"> ({column.dataType})</Text>
+			{!column.nullable && <Text color="magenta"> NOT NULL</Text>}
+			{column.isPrimaryKey && <Text color="yellow"> [PK]</Text>}
+			{column.isForeignKey && column.foreignTable && column.foreignColumn && (
+				<Text color="green">
+					{" "}
+					[FK → {column.foreignTable}.{column.foreignColumn}]
+				</Text>
+			)}
+		</Text>
+	);
+};
