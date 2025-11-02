@@ -40,7 +40,7 @@ export const SearchView: React.FC = () => {
 	}, [table?.name, table?.schema]);
 
 	const terminalWidth = stdout?.columns ?? 80;
-	const summaryWidth = Math.max(40, terminalWidth - 8);
+	const summaryWidth = Math.max(40, terminalWidth - 12);
 
 	const selectedRow = useMemo<DataRow | null>(() => {
 		if (
@@ -166,8 +166,8 @@ export const SearchView: React.FC = () => {
 	}
 
 	const footer = navigationMode
-		? "Tab: Edit term • ↑/↓ Select • n/p or PgUp/PgDn Page • Enter/d Row detail • Esc Back"
-		: "Tab: Results mode • Enter: Search • Esc Back";
+		? "Tab Edit • ↑/↓ Select • n/p PgUp/PgDn Page • Enter/d Row detail • Esc Back"
+		: "Enter Search • Tab Results • Esc Back";
 
 	return (
 		<ViewBuilder
@@ -176,14 +176,7 @@ export const SearchView: React.FC = () => {
 			footer={footer}
 		>
 			<Box flexDirection="column">
-				<Box flexDirection="column" marginBottom={1}>
-					<Text color="cyan">Search term:</Text>
-					<Text color="gray" dimColor>
-						{navigationMode
-							? "Navigation mode active. Press Tab to edit search."
-							: "Press Enter to search. Tab switches to results navigation."}
-					</Text>
-				</Box>
+				<Text color="cyan">Search term</Text>
 				<TextInput
 					value={inputValue}
 					onChange={(value) => {
@@ -200,11 +193,11 @@ export const SearchView: React.FC = () => {
 					placeholder="Type to search across all columns..."
 					focus={!navigationMode}
 				/>
-				<Box marginY={1} flexDirection="column">
+				<Box marginY={1}>
 					<Text color="gray" dimColor>
-						{searchResults.length > 0
-							? "Use Tab to switch between editing and navigating results."
-							: "Results will appear below after executing a search."}
+						{navigationMode
+							? "Navigation mode • Tab to edit"
+							: "Enter to search • Tab for results navigation"}
 					</Text>
 				</Box>
 				<Box flexDirection="column">
@@ -215,19 +208,14 @@ export const SearchView: React.FC = () => {
 							const isSelected = index === searchSelectedIndex;
 							const label = formatRowSummary(row, columns, summaryWidth);
 							return (
-								<Box
-									key={index}
-									flexDirection="row"
-									borderStyle={isSelected ? "single" : undefined}
-									borderColor={isSelected ? "cyan" : undefined}
-									paddingX={1}
-									paddingY={0}
-									marginBottom={1}
-								>
+								<Box key={index} flexDirection="row" marginBottom={1}>
 									<Text color={isSelected ? "cyan" : "gray"}>
-										{formatRowIndex(searchOffset, index)}
+										{isSelected ? "▶ " : "  "}
 									</Text>
-									<Text color={isSelected ? "white" : undefined}>{label}</Text>
+									<Text color={isSelected ? "white" : undefined}>
+										{formatRowIndex(searchOffset, index)}
+										{label}
+									</Text>
 								</Box>
 							);
 						})
@@ -239,7 +227,7 @@ export const SearchView: React.FC = () => {
 							{rowsLabel}
 						</Text>
 						<Text color="gray" dimColor>
-							{searchHasMore ? "n: Next page" : "End of results"}
+							{searchHasMore ? "More results available" : "End of results"}
 						</Text>
 					</Box>
 				)}
