@@ -71,7 +71,7 @@ export const QueryView: React.FC = () => {
 		<ViewBuilder
 			title="SQL Query"
 			subtitle={`Connected to: ${state?.activeConnection?.name || "Unknown"}`}
-			footer="Tab: Commands | Enter: Execute | ?: Help | Esc: Back"
+			footer="Tab: Commands | Enter: Execute | Esc: Back"
 		>
 			<Box flexDirection="column">
 				<Box flexDirection="column" marginBottom={1}>

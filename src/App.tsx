@@ -88,16 +88,6 @@ const AppContent: React.FC = () => {
 			}
 			// For other views, let the component's local useInput handle navigation
 		}
-		// Only handle 'h' for help when not in QueryView or TablesView
-		// (QueryView handles 'h' for history in command mode, TablesView handles 'h' for history too)
-		if (
-			(input === "h" || input === "?") &&
-			state.currentView !== ViewState.Query &&
-			state.currentView !== ViewState.Tables &&
-			state.currentView !== ViewState.Search
-		) {
-			dispatch({ type: ActionType.SetView, view: ViewState.Help });
-		}
 	});
 
 	useEffect(() => {
@@ -161,17 +151,6 @@ const AppContent: React.FC = () => {
 				return <IndexesView />;
 			case ViewState.Context:
 				return <ContextOverviewView />;
-			case ViewState.Help:
-				return (
-					<Box flexDirection="column">
-						<Text color="green">Help</Text>
-						<Text>Press Esc to go back to database selection.</Text>
-						<Text>
-							Use arrow keys / Enter to select options. Type connection strings
-							and press Enter to connect.
-						</Text>
-					</Box>
-				);
 			default:
 				return (
 					<Box>

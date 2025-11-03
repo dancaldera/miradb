@@ -31,6 +31,7 @@ const {
 	fetchTables,
 	removeSavedConnection,
 	updateSavedConnection,
+	updateTableFieldValue,
 	__internal,
 } = effects;
 
@@ -42,11 +43,19 @@ const {
 	extractCount,
 	buildSearchWhereClause,
 	selectSearchOrderColumn,
+	interpretEditedInput,
+	valuesAreEqual,
 } = __internal;
 
 import { createDatabaseConnection } from "../../src/database/connection.js";
 import { ActionType } from "../../src/state/actions.js";
-import { DBType, initialAppState, ViewState } from "../../src/types/state.js";
+import {
+	type ColumnInfo,
+	DBType,
+	initialAppState,
+	type TableInfo,
+	ViewState,
+} from "../../src/types/state.js";
 import * as persistence from "../../src/utils/persistence.js";
 
 const createDatabaseConnectionMock = createDatabaseConnection as Mock<
@@ -1446,5 +1455,327 @@ describe("effects", () => {
 
 	it("selectSearchOrderColumn returns null when no columns provided", () => {
 		expect(selectSearchOrderColumn(DBType.PostgreSQL, [])).toBeNull();
+	});
+
+	describe("updateTableFieldValue", () => {
+		const table: TableInfo = {
+			schema: "public",
+			name: "users",
+			type: "table",
+		};
+
+		const primaryKeyColumn: ColumnInfo = {
+			name: "id",
+			dataType: "integer",
+			nullable: false,
+			isPrimaryKey: true,
+		};
+
+		const nameColumn: ColumnInfo = {
+			name: "name",
+			dataType: "text",
+			nullable: true,
+		};
+
+		const activeConnection = {
+			id: "conn-1",
+			name: "Local",
+			type: DBType.PostgreSQL,
+			connectionString: "postgres://user:pass@localhost:5432/db",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		const buildState = (
+			columns: ColumnInfo[] = [primaryKeyColumn, nameColumn],
+		) => ({
+			...initialAppState,
+			dbType: DBType.PostgreSQL,
+			activeConnection,
+			columns,
+			selectedTable: table,
+			selectedRowIndex: 0,
+			dataRows: [
+				{
+					id: 1,
+					name: "Alice",
+				},
+			],
+		});
+
+		it("updates column value and dispatches state changes", async () => {
+			const dispatch = vi.fn() as Dispatch;
+			const state = buildState();
+			const row = state.dataRows[0];
+			const connectionStub = {
+				connect: vi.fn(async () => {}),
+				execute: vi.fn(async () => {}),
+				close: vi.fn(async () => {}),
+			};
+			createDatabaseConnectionMock.mockReturnValueOnce(connectionStub as any);
+
+			const result = await updateTableFieldValue(
+				dispatch,
+				state,
+				table,
+				nameColumn,
+				0,
+				row,
+				"Bob",
+			);
+
+			expect(result).toBe(true);
+			expect(connectionStub.connect).toHaveBeenCalledTimes(1);
+			expect(connectionStub.execute).toHaveBeenCalledWith(
+				'UPDATE "public"."users" SET "name" = $1 WHERE "id" = $2',
+				["Bob", 1],
+			);
+			expect(connectionStub.close).toHaveBeenCalledTimes(1);
+			expect(dispatch).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: ActionType.UpdateDataRowValue,
+					columnName: "name",
+					value: "Bob",
+				}),
+			);
+			expect(dispatch).toHaveBeenCalledWith({
+				type: ActionType.SetInfo,
+				message: "Updated name.",
+			});
+		});
+
+		it("interprets NULL input as SQL null", async () => {
+			const dispatch = vi.fn() as Dispatch;
+			const state = buildState();
+			const row = state.dataRows[0];
+			const connectionStub = {
+				connect: vi.fn(async () => {}),
+				execute: vi.fn(async () => {}),
+				close: vi.fn(async () => {}),
+			};
+			createDatabaseConnectionMock.mockReturnValueOnce(connectionStub as any);
+
+			const result = await updateTableFieldValue(
+				dispatch,
+				state,
+				table,
+				nameColumn,
+				0,
+				row,
+				" NULL \n",
+			);
+
+			expect(result).toBe(true);
+			expect(connectionStub.execute).toHaveBeenCalledWith(
+				'UPDATE "public"."users" SET "name" = $1 WHERE "id" = $2',
+				[null, 1],
+			);
+			expect(dispatch).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: ActionType.UpdateDataRowValue,
+					value: null,
+				}),
+			);
+		});
+
+		it("skips update when no primary key is present", async () => {
+			const dispatch = vi.fn() as Dispatch;
+			const state = buildState([{ ...nameColumn, isPrimaryKey: false }]);
+			const row = state.dataRows[0];
+
+			const result = await updateTableFieldValue(
+				dispatch,
+				state,
+				table,
+				nameColumn,
+				0,
+				row,
+				"Bob",
+			);
+
+			expect(result).toBe(false);
+			expect(createDatabaseConnectionMock).not.toHaveBeenCalled();
+			expect(dispatch).toHaveBeenCalledWith({
+				type: ActionType.SetError,
+				error: "Editing requires a primary key to identify the row.",
+			});
+		});
+
+		it("skips update when value is unchanged", async () => {
+			const dispatch = vi.fn() as Dispatch;
+			const state = buildState();
+			const row = state.dataRows[0];
+
+			const result = await updateTableFieldValue(
+				dispatch,
+				state,
+				table,
+				nameColumn,
+				0,
+				row,
+				"Alice",
+			);
+
+			expect(result).toBe(false);
+			expect(createDatabaseConnectionMock).not.toHaveBeenCalled();
+			expect(dispatch).toHaveBeenCalledWith({
+				type: ActionType.SetInfo,
+				message: "No changes made to name.",
+			});
+		});
+
+		it("propagates database errors", async () => {
+			const dispatch = vi.fn() as Dispatch;
+			const state = buildState();
+			const row = state.dataRows[0];
+			const connectionStub = {
+				connect: vi.fn(async () => {}),
+				execute: vi.fn(async () => {
+					throw new Error("boom");
+				}),
+				close: vi.fn(async () => {}),
+			};
+			createDatabaseConnectionMock.mockReturnValueOnce(connectionStub as any);
+
+			const result = await updateTableFieldValue(
+				dispatch,
+				state,
+				table,
+				nameColumn,
+				0,
+				row,
+				"Bob",
+			);
+
+			expect(result).toBe(false);
+			expect(dispatch).toHaveBeenCalledWith({
+				type: ActionType.SetError,
+				error: "boom",
+			});
+			expect(connectionStub.close).toHaveBeenCalledTimes(1);
+		});
+
+		it("rejects when active connection is missing", async () => {
+			const dispatch = vi.fn() as Dispatch;
+			const state = {
+				...buildState(),
+				activeConnection: null,
+			};
+			const row = state.dataRows[0];
+
+			const result = await updateTableFieldValue(
+				dispatch,
+				state,
+				table,
+				nameColumn,
+				0,
+				row,
+				"Bob",
+			);
+
+			expect(result).toBe(false);
+			expect(createDatabaseConnectionMock).not.toHaveBeenCalled();
+			expect(dispatch).toHaveBeenCalledWith({
+				type: ActionType.SetError,
+				error: "No active database connection.",
+			});
+		});
+
+		it("rejects when table is null", async () => {
+			const dispatch = vi.fn() as Dispatch;
+			const state = buildState();
+			const row = state.dataRows[0];
+
+			const result = await updateTableFieldValue(
+				dispatch,
+				state,
+				null,
+				nameColumn,
+				0,
+				row,
+				"Bob",
+			);
+
+			expect(result).toBe(false);
+			expect(createDatabaseConnectionMock).not.toHaveBeenCalled();
+			expect(dispatch).toHaveBeenCalledWith({
+				type: ActionType.SetError,
+				error: "No table selected for editing.",
+			});
+		});
+
+		it("surfaces error when primary key value is missing", async () => {
+			const dispatch = vi.fn() as Dispatch;
+			const state = buildState();
+			const row = { id: undefined, name: "Alice" } as any;
+			const connectionStub = {
+				connect: vi.fn(async () => {}),
+				execute: vi.fn(async () => {}),
+				close: vi.fn(async () => {}),
+			};
+			createDatabaseConnectionMock.mockReturnValueOnce(connectionStub as any);
+
+			const result = await updateTableFieldValue(
+				dispatch,
+				state,
+				table,
+				nameColumn,
+				0,
+				row,
+				"Bob",
+			);
+
+			expect(result).toBe(false);
+			expect(dispatch).toHaveBeenCalledWith({
+				type: ActionType.SetError,
+				error: expect.stringContaining("Missing primary key value"),
+			});
+			expect(connectionStub.close).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe("interpretEditedInput", () => {
+		const column: ColumnInfo = {
+			name: "content",
+			dataType: "text",
+			nullable: true,
+		};
+
+		it("returns null for NULL literal", () => {
+			expect(interpretEditedInput("NULL", column)).toBeNull();
+			expect(interpretEditedInput(" null ", column)).toBeNull();
+		});
+
+		it("returns raw string for non-null input", () => {
+			expect(interpretEditedInput("hello", column)).toBe("hello");
+		});
+	});
+
+	describe("valuesAreEqual", () => {
+		it("treats identical primitives as equal", () => {
+			expect(valuesAreEqual("a", "a")).toBe(true);
+			expect(valuesAreEqual(1, 1)).toBe(true);
+		});
+
+		it("treats nullish pairs as equal", () => {
+			expect(valuesAreEqual(null, undefined)).toBe(true);
+		});
+
+		it("performs deep equality for objects", () => {
+			expect(valuesAreEqual({ a: 1 }, { a: 1 })).toBe(true);
+			expect(valuesAreEqual({ a: 1 }, { a: 2 })).toBe(false);
+		});
+
+		it("returns false for distinct primitives", () => {
+			expect(valuesAreEqual("a", "b")).toBe(false);
+		});
+
+		it("handles circular structures by returning false", () => {
+			const circularA: any = {};
+			circularA.self = circularA;
+			const circularB: any = {};
+			circularB.self = circularB;
+			expect(valuesAreEqual(circularA, circularB)).toBe(false);
+		});
 	});
 });

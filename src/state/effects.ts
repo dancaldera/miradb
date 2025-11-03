@@ -1280,4 +1280,6 @@ export const __internal = {
 	selectSearchOrderColumn,
 	buildSearchQueries,
 	quoteIdentifier,
+	interpretEditedInput,
+	valuesAreEqual,
 } as const;

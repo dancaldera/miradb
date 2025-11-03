@@ -117,6 +117,49 @@ describe("PostgresConnection", () => {
 		expect((connection as any).connected).toBe(false);
 	});
 
+	it("handles close timeout gracefully", async () => {
+		vi.useFakeTimers();
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		mockEnd.mockReturnValueOnce(new Promise(() => {}));
+		const slowConnection = new PostgresConnection({
+			type: "PostgreSQL" as any,
+			connectionString: "postgres://test",
+			pool: {
+				closeTimeoutMillis: 5,
+			},
+		});
+
+		const originalSetTimeout = global.setTimeout;
+		const originalClearTimeout = global.clearTimeout;
+		(globalThis as any).setTimeout = (fn: () => void) => {
+			fn();
+			return 0;
+		};
+		(globalThis as any).clearTimeout = () => {};
+
+		await slowConnection.close();
+
+		expect(warnSpy).toHaveBeenCalled();
+		expect((slowConnection as any).connected).toBe(false);
+		warnSpy.mockRestore();
+		(globalThis as any).setTimeout = originalSetTimeout;
+		(globalThis as any).clearTimeout = originalClearTimeout;
+	});
+
+	it("warns when close rejects immediately", async () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		mockEnd.mockRejectedValueOnce(new Error("close failed"));
+
+		await connection.close();
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			"Failed to close PostgreSQL pool cleanly:",
+			expect.any(Error),
+		);
+		expect((connection as any).connected).toBe(false);
+		warnSpy.mockRestore();
+	});
+
 	it("handles missing rowCount gracefully", async () => {
 		(connection as any).connected = true;
 		mockQuery.mockResolvedValue({

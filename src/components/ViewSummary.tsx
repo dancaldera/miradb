@@ -36,8 +36,6 @@ export function ViewSummary({ entry }: ViewSummaryProps) {
 				return "📇";
 			case ViewState.Context:
 				return "🧭";
-			case ViewState.Help:
-				return "❓";
 			default:
 				return "▸";
 		}

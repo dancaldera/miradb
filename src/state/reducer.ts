@@ -178,9 +178,11 @@ export function appReducer(
 
 			case ActionType.UpdateDataRowValue: {
 				const { columnName, value, rowIndex, table } = action;
-				if (rowIndex !== null && draft.dataRows[rowIndex]) {
-					draft.dataRows[rowIndex] = {
-						...draft.dataRows[rowIndex],
+				const effectiveRowIndex =
+					rowIndex !== null ? rowIndex : draft.selectedRowIndex;
+				if (effectiveRowIndex !== null && draft.dataRows[effectiveRowIndex]) {
+					draft.dataRows[effectiveRowIndex] = {
+						...draft.dataRows[effectiveRowIndex],
 						[columnName]: value,
 					};
 				}
@@ -194,8 +196,8 @@ export function appReducer(
 				if (cacheKey && draft.tableCache[cacheKey]) {
 					const cache = draft.tableCache[cacheKey];
 					const targetIndex =
-						rowIndex !== null
-							? rowIndex
+						effectiveRowIndex !== null
+							? effectiveRowIndex
 							: draft.selectedRowIndex !== null
 								? draft.selectedRowIndex
 								: null;

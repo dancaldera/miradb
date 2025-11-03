@@ -252,24 +252,31 @@ export const RowDetailView: React.FC = () => {
 				return;
 			}
 
-			if (key.backspace) {
-				if (editCursor === 0) {
-					return;
-				}
-				applyEdit(
-					`${editBuffer.slice(0, editCursor - 1)}${editBuffer.slice(editCursor)}`,
-					editCursor - 1,
-				);
-				return;
-			}
+			const isBackspaceKey = key.backspace || input === "\u007f";
+			const isDeleteKey =
+				((key as Record<string, unknown>).delete as boolean | undefined) === true ||
+				input === "\u001b[3~";
 
-			if ("delete" in key && (key as Record<string, unknown>).delete) {
+			// Backspace deletes to the right →
+			if (isBackspaceKey && !isDeleteKey) {
 				if (editCursor >= editBuffer.length) {
 					return;
 				}
 				applyEdit(
 					`${editBuffer.slice(0, editCursor)}${editBuffer.slice(editCursor + 1)}`,
 					editCursor,
+				);
+				return;
+			}
+
+			// Delete key deletes to the left ←
+			if (isDeleteKey && !isBackspaceKey) {
+				if (editCursor === 0) {
+					return;
+				}
+				applyEdit(
+					`${editBuffer.slice(0, editCursor - 1)}${editBuffer.slice(editCursor)}`,
+					editCursor - 1,
 				);
 				return;
 			}
@@ -281,6 +288,30 @@ export const RowDetailView: React.FC = () => {
 
 			if (key.rightArrow) {
 				moveCursor(editCursor + 1);
+				return;
+			}
+
+			if (key.ctrl && input.toLowerCase() === "a") {
+				const lineStartIndex = lineColumnToIndex(editLines, editCursorLine, 0);
+				moveCursor(lineStartIndex);
+				return;
+			}
+
+			if (key.ctrl && input.toLowerCase() === "e") {
+				const lineLength = editLines[editCursorLine]?.length ?? 0;
+				moveCursor(lineColumnToIndex(editLines, editCursorLine, lineLength));
+				return;
+			}
+
+			if (key.ctrl && input.toLowerCase() === "u") {
+				const lineStartIndex = lineColumnToIndex(editLines, editCursorLine, 0);
+				const linePrefixLength = editCursor - lineStartIndex;
+				if (linePrefixLength > 0) {
+					applyEdit(
+						`${editBuffer.slice(0, lineStartIndex)}${editBuffer.slice(editCursor)}`,
+						lineStartIndex,
+					);
+				}
 				return;
 			}
 
@@ -590,18 +621,19 @@ export const RowDetailView: React.FC = () => {
 		return (
 			<ViewBuilder
 				title="Edit Field"
-				subtitle={[
+					subtitle={[
 					state.selectedTable ? renderTableName(state.selectedTable) : null,
 					`${editingField.column.name} (${editingField.column.dataType})`,
 					`Field ${editingFieldIndex + 1}/${fields.length || 1}`,
 					`Line ${editCursorLine + 1}`,
+					`Col ${editCursorColumn + 1}`,
 				]
 					.filter(Boolean)
 					.join(" • ")}
 				footer={
 					isSavingEdit
 						? "Saving…"
-						: "Enter New line • Ctrl+S Save • Ctrl+L Clear • Esc Cancel"
+						: "Enter New line • Ctrl+S Save • Esc Cancel"
 				}
 			>
 				<Box flexDirection="column">
@@ -609,40 +641,71 @@ export const RowDetailView: React.FC = () => {
 					{visibleLines.map((line, index) => {
 						const absoluteIndex = editScrollOffset + index;
 						const isCursorLine = absoluteIndex === editCursorLine;
-						const segments = getCursorSegments(line, editCursorColumn);
-						return (
-							<Box key={absoluteIndex} flexDirection="row">
-								<Text color="gray" dimColor>
-									{`${String(absoluteIndex + 1).padStart(
-										editLineNumberWidth,
-										" ",
-									)} │ `}
-								</Text>
-								<Text color="white">
-									{isCursorLine ? segments.before : line}
-								</Text>
-								{isCursorLine && (
-									<>
-										<Text inverse>
-											{segments.cursor === "" ? " " : segments.cursor}
-										</Text>
-										<Text color="white">{segments.after}</Text>
-									</>
-								)}
-							</Box>
-						);
-					})}
+				const segments = splitLineAtColumn(line, editCursorColumn);
+				return (
+					<Box key={absoluteIndex} flexDirection="row">
+						<Text color="gray" dimColor>
+							{`${String(absoluteIndex + 1).padStart(
+								editLineNumberWidth,
+								" ",
+							)} │ `}
+						</Text>
+						<Text color="white">
+							{isCursorLine ? segments.before : line}
+						</Text>
+						{isCursorLine && (
+							<>
+								<Text color="cyan">│</Text>
+								<Text color="white">{segments.after}</Text>
+							</>
+						)}
+					</Box>
+				);
+			})}
 					{visibleLines.length === 0 && (
 						<Text color="gray" dimColor>
 							Empty value. Type to insert content.
 						</Text>
 					)}
 				</Box>
-				<Box marginTop={1} flexDirection="column">
-					<Text dimColor>
-						Type NULL (any case) to store a SQL NULL. Changes apply immediately
-						after saving.
-					</Text>
+				<Box marginTop={1} flexDirection="column" gap={1}>
+					<Box flexDirection="column">
+						<Text bold color="cyan">
+							Editing:
+						</Text>
+						<Text dimColor>
+							  • Type to insert text at cursor position
+						</Text>
+						<Text dimColor>
+							  • Type <Text color="yellow">NULL</Text> (any case) to store SQL
+							NULL
+						</Text>
+						<Text dimColor>
+							  • Changes save to database immediately after Ctrl+S
+						</Text>
+					</Box>
+					<Box flexDirection="column">
+						<Text bold color="cyan">
+							Navigation:
+						</Text>
+						<Text dimColor>
+							  • Arrow keys move cursor • Ctrl+A/E jump to line start/end
+						</Text>
+					</Box>
+					<Box flexDirection="column">
+						<Text bold color="cyan">
+							Deletion:
+						</Text>
+						<Text dimColor>
+							  • Backspace deletes character to the right
+						</Text>
+						<Text dimColor>
+							  • Delete (or Ctrl+Backspace on Mac) deletes character to the left
+						</Text>
+						<Text dimColor>
+							  • Ctrl+U clears from cursor to line start • Ctrl+L clears all
+						</Text>
+					</Box>
 				</Box>
 			</ViewBuilder>
 		);
@@ -877,19 +940,18 @@ function clampScrollOffset(
 	return Math.max(0, Math.min(nextOffset, maxOffset));
 }
 
-function getCursorSegments(
+function splitLineAtColumn(
 	line: string,
 	column: number,
 ): {
 	before: string;
-	cursor: string;
 	after: string;
 } {
 	const safeColumn = Math.max(0, Math.min(column, line.length));
-	const before = line.slice(0, safeColumn);
-	const cursor = line.charAt(safeColumn);
-	const after = safeColumn < line.length ? line.slice(safeColumn + 1) : "";
-	return { before, cursor, after };
+	return {
+		before: line.slice(0, safeColumn),
+		after: line.slice(safeColumn),
+	};
 }
 
 function getValueColor(

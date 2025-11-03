@@ -12,7 +12,6 @@ export enum ViewState {
 	Indexes = "INDEXES",
 	Search = "SEARCH",
 	Context = "CONTEXT",
-	Help = "HELP",
 }
 
 export enum DBType {

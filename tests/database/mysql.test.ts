@@ -126,6 +126,47 @@ describe("MySQLConnection", () => {
 		expect((connection as any).connected).toBe(false);
 	});
 
+	it("handles close timeout gracefully", async () => {
+		const originalSetTimeout = global.setTimeout;
+		const originalClearTimeout = global.clearTimeout;
+		(globalThis as any).setTimeout = (fn: () => void) => {
+			fn();
+			return 0;
+		};
+		(globalThis as any).clearTimeout = () => {};
+		const slowConnection = new MySQLConnection({
+			type: "MySQL" as any,
+			connectionString: "mysql://test",
+			pool: {
+				closeTimeoutMillis: 5,
+			},
+		});
+		mockMysqlEnd.mockReturnValueOnce(new Promise(() => {}));
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		await slowConnection.close();
+
+		expect(warnSpy).toHaveBeenCalled();
+		expect((slowConnection as any).connected).toBe(false);
+		warnSpy.mockRestore();
+		(globalThis as any).setTimeout = originalSetTimeout;
+		(globalThis as any).clearTimeout = originalClearTimeout;
+	});
+
+	it("warns when close rejects immediately", async () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		mockMysqlEnd.mockRejectedValueOnce(new Error("close failed"));
+
+		await connection.close();
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			"Failed to close MySQL pool cleanly:",
+			expect.any(Error),
+		);
+		expect((connection as any).connected).toBe(false);
+		warnSpy.mockRestore();
+	});
+
 	it("handles fields without name property", async () => {
 		(connection as any).connected = true;
 		const mockRows = [{ id: 1 }];
