@@ -254,8 +254,8 @@ export const RowDetailView: React.FC = () => {
 
 			const isBackspaceKey = key.backspace || input === "\u007f";
 			const isDeleteKey =
-				((key as Record<string, unknown>).delete as boolean | undefined) === true ||
-				input === "\u001b[3~";
+				((key as Record<string, unknown>).delete as boolean | undefined) ===
+					true || input === "\u001b[3~";
 
 			// Backspace deletes to the right →
 			if (isBackspaceKey && !isDeleteKey) {
@@ -621,7 +621,7 @@ export const RowDetailView: React.FC = () => {
 		return (
 			<ViewBuilder
 				title="Edit Field"
-					subtitle={[
+				subtitle={[
 					state.selectedTable ? renderTableName(state.selectedTable) : null,
 					`${editingField.column.name} (${editingField.column.dataType})`,
 					`Field ${editingFieldIndex + 1}/${fields.length || 1}`,
@@ -631,9 +631,7 @@ export const RowDetailView: React.FC = () => {
 					.filter(Boolean)
 					.join(" • ")}
 				footer={
-					isSavingEdit
-						? "Saving…"
-						: "Enter New line • Ctrl+S Save • Esc Cancel"
+					isSavingEdit ? "Saving…" : "Enter New line • Ctrl+S Save • Esc Cancel"
 				}
 			>
 				<Box flexDirection="column">
@@ -641,27 +639,27 @@ export const RowDetailView: React.FC = () => {
 					{visibleLines.map((line, index) => {
 						const absoluteIndex = editScrollOffset + index;
 						const isCursorLine = absoluteIndex === editCursorLine;
-				const segments = splitLineAtColumn(line, editCursorColumn);
-				return (
-					<Box key={absoluteIndex} flexDirection="row">
-						<Text color="gray" dimColor>
-							{`${String(absoluteIndex + 1).padStart(
-								editLineNumberWidth,
-								" ",
-							)} │ `}
-						</Text>
-						<Text color="white">
-							{isCursorLine ? segments.before : line}
-						</Text>
-						{isCursorLine && (
-							<>
-								<Text color="cyan">│</Text>
-								<Text color="white">{segments.after}</Text>
-							</>
-						)}
-					</Box>
-				);
-			})}
+						const segments = splitLineAtColumn(line, editCursorColumn);
+						return (
+							<Box key={absoluteIndex} flexDirection="row">
+								<Text color="gray" dimColor>
+									{`${String(absoluteIndex + 1).padStart(
+										editLineNumberWidth,
+										" ",
+									)} │ `}
+								</Text>
+								<Text color="white">
+									{isCursorLine ? segments.before : line}
+								</Text>
+								{isCursorLine && (
+									<>
+										<Text color="cyan">│</Text>
+										<Text color="white">{segments.after}</Text>
+									</>
+								)}
+							</Box>
+						);
+					})}
 					{visibleLines.length === 0 && (
 						<Text color="gray" dimColor>
 							Empty value. Type to insert content.
@@ -673,15 +671,13 @@ export const RowDetailView: React.FC = () => {
 						<Text bold color="cyan">
 							Editing:
 						</Text>
+						<Text dimColor>• Type to insert text at cursor position</Text>
 						<Text dimColor>
-							  • Type to insert text at cursor position
-						</Text>
-						<Text dimColor>
-							  • Type <Text color="yellow">NULL</Text> (any case) to store SQL
+							• Type <Text color="yellow">NULL</Text> (any case) to store SQL
 							NULL
 						</Text>
 						<Text dimColor>
-							  • Changes save to database immediately after Ctrl+S
+							• Changes save to database immediately after Ctrl+S
 						</Text>
 					</Box>
 					<Box flexDirection="column">
@@ -689,21 +685,19 @@ export const RowDetailView: React.FC = () => {
 							Navigation:
 						</Text>
 						<Text dimColor>
-							  • Arrow keys move cursor • Ctrl+A/E jump to line start/end
+							• Arrow keys move cursor • Ctrl+A/E jump to line start/end
 						</Text>
 					</Box>
 					<Box flexDirection="column">
 						<Text bold color="cyan">
 							Deletion:
 						</Text>
+						<Text dimColor>• Backspace deletes character to the right</Text>
 						<Text dimColor>
-							  • Backspace deletes character to the right
+							• Delete (or Ctrl+Backspace on Mac) deletes character to the left
 						</Text>
 						<Text dimColor>
-							  • Delete (or Ctrl+Backspace on Mac) deletes character to the left
-						</Text>
-						<Text dimColor>
-							  • Ctrl+U clears from cursor to line start • Ctrl+L clears all
+							• Ctrl+U clears from cursor to line start • Ctrl+L clears all
 						</Text>
 					</Box>
 				</Box>
