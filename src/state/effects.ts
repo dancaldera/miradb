@@ -562,7 +562,10 @@ export async function searchTableRows(
 	}
 
 	const offset = Math.max(options.offset ?? 0, 0);
-	const limit = Math.max(options.limit ?? DEFAULT_SEARCH_PAGE_SIZE, 1);
+	const limit = Math.min(
+		Math.max(options.limit ?? DEFAULT_SEARCH_PAGE_SIZE, 1),
+		DEFAULT_SEARCH_PAGE_SIZE,
+	);
 	const likeTerm = `%${normalizedTerm}%`;
 
 	const whereClause = buildSearchWhereClause(dbConfig.type, columns);

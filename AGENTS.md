@@ -20,6 +20,11 @@ bun format           # Format code with Biome
 bun type-check       # Run TypeScript type checking
 ```
 
+## Release & Versioning
+
+- Follow semantic versioning when updating `package.json`: increment the patch version for fixes and internal improvements, the minor version for backward-compatible features, and the major version for breaking changes.
+- Always bump the version before committing user-facing changes or adjustments that impact delivered functionality.
+
 ## Architecture Overview
 
 ### Technology Stack
