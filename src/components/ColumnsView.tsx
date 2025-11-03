@@ -86,13 +86,17 @@ export const ColumnsView: React.FC = () => {
 		);
 	}
 
+	// Don't show anything while loading columns initially
+	if (state.columns.length === 0 && state.loading) {
+		return null;
+	}
+
 	return (
 		<ViewBuilder
 			title={`Columns • ${table.schema ? `${table.schema}.` : ""}${table.name}`}
-			subtitle={state.loading ? "Loading columns…" : undefined}
 			footer="Enter/o: Data preview | r: Relationships | i: Indexes | q: Query | s: Search • Esc back"
 		>
-			{state.columns.length === 0 && !state.loading ? (
+			{state.columns.length === 0 ? (
 				<Text dimColor>No column metadata available.</Text>
 			) : (
 				<ColumnsGrid

@@ -34,14 +34,6 @@ export const ConnectionView: React.FC = () => {
 	}, [state.dbType]);
 
 	useInput((input, key) => {
-		const isSavedConnectionsShortcut =
-			state.savedConnections.length > 0 &&
-			((key.ctrl && input.toLowerCase() === "s") ||
-				(!key.ctrl && key.meta && input.toLowerCase() === "s"));
-
-		if (isSavedConnectionsShortcut) {
-			dispatch({ type: ActionType.SetView, view: ViewState.SavedConnections });
-		}
 		if (key.escape) {
 			dispatch({ type: ActionType.SetView, view: ViewState.DBType });
 		}

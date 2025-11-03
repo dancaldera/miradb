@@ -38,4 +38,10 @@ describe("parameterize", () => {
 		expect(query.sql).toBe("SELECT 1");
 		expect(query.params).toEqual([]);
 	});
+
+	it("returns original SQL for unsupported database types", () => {
+		const query = parameterize("SELECT * FROM dual", "oracle" as DBType);
+		expect(query.sql).toBe("SELECT * FROM dual");
+		expect(query.params).toEqual([]);
+	});
 });

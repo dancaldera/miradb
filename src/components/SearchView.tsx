@@ -7,6 +7,10 @@ import { useAppDispatch, useAppState } from "../state/context.js";
 import { searchTableRows } from "../state/effects.js";
 import type { DataRow } from "../types/state.js";
 import { ViewState } from "../types/state.js";
+import {
+	getSelectionBackground,
+	getSelectionIndicator,
+} from "../utils/selection-theme.js";
 import { ViewBuilder } from "./ViewBuilder.js";
 
 const SEARCH_PAGE_SIZE = 25;
@@ -207,12 +211,21 @@ export const SearchView: React.FC = () => {
 						searchResults.map((row, index) => {
 							const isSelected = index === searchSelectedIndex;
 							const label = formatRowSummary(row, columns, summaryWidth);
+							const indicator = getSelectionIndicator(isSelected);
+							const backgroundColor = getSelectionBackground(isSelected);
+
 							return (
 								<Box key={index} flexDirection="row" marginBottom={1}>
-									<Text color={isSelected ? "cyan" : "gray"}>
-										{isSelected ? "▶ " : "  "}
+									<Text
+										color={indicator.color}
+										backgroundColor={backgroundColor}
+									>
+										{indicator.symbol}{" "}
 									</Text>
-									<Text color={isSelected ? "white" : undefined}>
+									<Text
+										color={isSelected ? "white" : undefined}
+										backgroundColor={backgroundColor}
+									>
 										{formatRowIndex(searchOffset, index)}
 										{label}
 									</Text>

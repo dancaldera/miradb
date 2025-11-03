@@ -4,6 +4,7 @@ import type React from "react";
 import { useCallback, useEffect, useRef } from "react";
 import { ColumnsView } from "./components/ColumnsView.js";
 import { ConnectionView } from "./components/ConnectionView.js";
+import { ContextHeader } from "./components/ContextHeader.js";
 import { DataPreviewView } from "./components/DataPreviewView.js";
 import { DBTypeView } from "./components/DBTypeView.js";
 import { IndexesView } from "./components/IndexesView.js";
@@ -12,9 +13,9 @@ import { QueryView } from "./components/QueryView.js";
 import { RelationshipsView } from "./components/RelationshipsView.js";
 import { RowDetailView } from "./components/RowDetailView.js";
 import { SavedConnectionsView } from "./components/SavedConnectionsView.js";
+import { ScrollableHistory } from "./components/ScrollableHistory.js";
 import { SearchView } from "./components/SearchView.js";
 import { TablesView } from "./components/TablesView.js";
-import { clearInkScreen } from "./inkControl.js";
 import { ActionType } from "./state/actions.js";
 import { AppProvider, useAppDispatch, useAppState } from "./state/context.js";
 import { initializeApp } from "./state/effects.js";
@@ -25,15 +26,6 @@ const AppContent: React.FC = () => {
 	const state = useAppState();
 	const dispatch = useAppDispatch();
 	const scheduledNotifications = useRef(new Set<string>());
-	const previousViewRef = useRef<ViewState | null>(null);
-
-	if (
-		previousViewRef.current !== null &&
-		previousViewRef.current !== state.currentView
-	) {
-		clearInkScreen();
-	}
-	previousViewRef.current = state.currentView;
 
 	useEffect(() => {
 		void initializeApp(dispatch);
@@ -45,6 +37,16 @@ const AppContent: React.FC = () => {
 	}, [dispatch]);
 
 	useInput((input, key) => {
+		// Handle Ctrl+S to navigate to saved connections from any view
+		if (
+			((key.ctrl && input.toLowerCase() === "s") ||
+				(!key.ctrl && key.meta && input.toLowerCase() === "s")) &&
+			state.currentView !== ViewState.SavedConnections
+		) {
+			dispatch({ type: ActionType.SetView, view: ViewState.SavedConnections });
+			return;
+		}
+
 		if (key.escape) {
 			// Only go home from root level views, not from sub-navigation
 			if (
@@ -139,11 +141,25 @@ const AppContent: React.FC = () => {
 		}
 	};
 
+	// Generate recent commands summary from view history
+	const recentCommands = state.viewHistory
+		.slice(-5)
+		.map((entry) => entry.summary);
+
 	return (
 		<Box flexDirection="column" paddingX={1} paddingY={1}>
 			<Text color="cyan" bold>
 				Mirador v{APP_VERSION}
 			</Text>
+
+			{/* Context Header - shows connection, breadcrumbs, recent actions */}
+			<ContextHeader
+				activeConnection={state.activeConnection}
+				dbType={state.dbType}
+				breadcrumbs={state.breadcrumbs}
+				recentCommands={recentCommands}
+			/>
+
 			{state.loading && (
 				<Box marginTop={1}>
 					<Text color="yellow">
@@ -151,6 +167,7 @@ const AppContent: React.FC = () => {
 					</Text>
 				</Box>
 			)}
+
 			<Box marginTop={1} flexDirection="column">
 				{state.errorMessage && (
 					<Text color="red">Error: {state.errorMessage}</Text>
@@ -172,6 +189,11 @@ const AppContent: React.FC = () => {
 						{note.message}
 					</Text>
 				))}
+
+				{/* Scrollable History - shows all previous interactions */}
+				<ScrollableHistory entries={state.viewHistory} />
+
+				{/* Current Interactive View */}
 				<Box marginTop={1}>{renderView()}</Box>
 			</Box>
 		</Box>

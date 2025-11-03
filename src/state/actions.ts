@@ -1,5 +1,6 @@
 import type { DatabaseError } from "../database/errors.js";
 import type {
+	BreadcrumbSegment,
 	ColumnInfo,
 	ColumnVisibilityMode,
 	ConnectionInfo,
@@ -10,6 +11,7 @@ import type {
 	SortConfig,
 	TableCacheEntry,
 	TableInfo,
+	ViewHistoryEntry,
 	ViewState,
 } from "../types/state.js";
 
@@ -54,6 +56,10 @@ export enum ActionType {
 	SetSearchResultsPage = "SET_SEARCH_RESULTS_PAGE",
 	SetSearchSelectedIndex = "SET_SEARCH_SELECTED_INDEX",
 	ClearSearch = "CLEAR_SEARCH",
+	AddViewHistoryEntry = "ADD_VIEW_HISTORY_ENTRY",
+	SetBreadcrumbs = "SET_BREADCRUMBS",
+	AddBreadcrumb = "ADD_BREADCRUMB",
+	ClearHistory = "CLEAR_HISTORY",
 }
 
 export type AppAction =
@@ -106,4 +112,8 @@ export type AppAction =
 			hasMore: boolean;
 	  }
 	| { type: ActionType.SetSearchSelectedIndex; index: number | null }
-	| { type: ActionType.ClearSearch };
+	| { type: ActionType.ClearSearch }
+	| { type: ActionType.AddViewHistoryEntry; entry: ViewHistoryEntry }
+	| { type: ActionType.SetBreadcrumbs; breadcrumbs: BreadcrumbSegment[] }
+	| { type: ActionType.AddBreadcrumb; breadcrumb: BreadcrumbSegment }
+	| { type: ActionType.ClearHistory };

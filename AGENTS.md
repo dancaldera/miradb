@@ -10,14 +10,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Development
-bun run dev          # Start development server with hot-reload using tsx
-bun run build        # Build production bundle with esbuild
-bun run start        # Run built application
-bun run test         # Run tests with Vitest
-bun run test:coverage # Run tests with coverage
-bun run lint         # Run Biome linter checks
-bun run format       # Format code with Biome
-bun run type-check   # Run TypeScript type checking
+bun dev              # Start development server with hot-reload using tsx
+bun run build            # Build production bundle with esbuild
+bun start            # Run built application
+bun test             # Run tests with Bun test runner
+bun test:coverage    # Run tests with coverage
+bun lint             # Run Biome linter checks
+bun format           # Format code with Biome
+bun type-check       # Run TypeScript type checking
 ```
 
 ## Architecture Overview

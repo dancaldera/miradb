@@ -12,10 +12,16 @@ import type {
 } from "../types/state.js";
 import { DBType } from "../types/state.js";
 
-const dataDir = path.join(os.homedir(), ".mirador");
-const connectionsPath = path.join(dataDir, "connections.json");
-const historyPath = path.join(dataDir, "query-history.json");
-const tableCachePath = path.join(dataDir, "table-cache.json");
+let dataDir =
+	process.env.MIRADOR_DATA_DIR ?? path.join(os.homedir(), ".mirador");
+
+function resolveDataPath(filename: string): string {
+	return path.join(dataDir, filename);
+}
+
+export function setPersistenceDataDirectory(dir: string): void {
+	dataDir = dir;
+}
 
 const connectionSchema: z.ZodType<ConnectionInfo> = z.object({
 	id: z.string(),
@@ -81,11 +87,12 @@ export interface ConnectionsLoadResult {
 
 export async function loadConnections(): Promise<ConnectionsLoadResult> {
 	await ensureDataDirectory();
-	if (!(await fileExists(connectionsPath))) {
+	const targetPath = resolveDataPath("connections.json");
+	if (!(await fileExists(targetPath))) {
 		return { connections: [], normalized: 0, skipped: 0 };
 	}
 
-	const content = await readFile(connectionsPath, "utf-8");
+	const content = await readFile(targetPath, "utf-8");
 	if (!content.trim()) {
 		return { connections: [], normalized: 0, skipped: 0 };
 	}
@@ -117,7 +124,36 @@ export async function loadConnections(): Promise<ConnectionsLoadResult> {
 		}
 	});
 
-	return { connections, normalized: normalizedCount, skipped: skippedCount };
+	const deduped: ConnectionInfo[] = [];
+	const byKey = new Map<string, ConnectionInfo>();
+	connections.forEach((connection) => {
+		const key = `${connection.type}|${connection.connectionString}`;
+		const existing = byKey.get(key);
+		if (!existing) {
+			byKey.set(key, connection);
+			deduped.push(connection);
+			return;
+		}
+
+		const existingTime = Date.parse(existing.updatedAt ?? "");
+		const currentTime = Date.parse(connection.updatedAt ?? "");
+		const shouldReplace =
+			!Number.isNaN(currentTime) && currentTime > existingTime;
+		if (shouldReplace) {
+			const idx = deduped.indexOf(existing);
+			if (idx !== -1) {
+				deduped[idx] = connection;
+			}
+			byKey.set(key, connection);
+		}
+		skippedCount += 1;
+	});
+
+	return {
+		connections: deduped,
+		normalized: normalizedCount,
+		skipped: skippedCount,
+	};
 }
 
 export async function saveConnections(
@@ -125,16 +161,17 @@ export async function saveConnections(
 ): Promise<void> {
 	await ensureDataDirectory();
 	const data = JSON.stringify(connections, null, 2);
-	await writeFile(connectionsPath, data, "utf-8");
+	await writeFile(resolveDataPath("connections.json"), data, "utf-8");
 }
 
 export async function loadQueryHistory(): Promise<QueryHistoryItem[]> {
 	await ensureDataDirectory();
-	if (!(await fileExists(historyPath))) {
+	const targetPath = resolveDataPath("query-history.json");
+	if (!(await fileExists(targetPath))) {
 		return [];
 	}
 
-	const content = await readFile(historyPath, "utf-8");
+	const content = await readFile(targetPath, "utf-8");
 	if (!content.trim()) {
 		return [];
 	}
@@ -147,7 +184,7 @@ export async function saveQueryHistory(
 ): Promise<void> {
 	await ensureDataDirectory();
 	const data = JSON.stringify(history, null, 2);
-	await writeFile(historyPath, data, "utf-8");
+	await writeFile(resolveDataPath("query-history.json"), data, "utf-8");
 }
 
 async function readTableCacheFile(): Promise<
@@ -155,16 +192,24 @@ async function readTableCacheFile(): Promise<
 > {
 	await ensureDataDirectory();
 
-	if (!(await fileExists(tableCachePath))) {
+	const targetPath = resolveDataPath("table-cache.json");
+
+	if (!(await fileExists(targetPath))) {
 		return {};
 	}
 
-	const content = await readFile(tableCachePath, "utf-8");
+	const content = await readFile(targetPath, "utf-8");
 	if (!content.trim()) {
 		return {};
 	}
 
-	const data = JSON.parse(content);
+	let data: unknown;
+	try {
+		data = JSON.parse(content);
+	} catch (error) {
+		console.warn("Invalid table cache file, resetting.", error);
+		return {};
+	}
 	if (typeof data !== "object" || data === null) {
 		console.warn("Invalid table cache file, resetting.");
 		return {};
@@ -211,7 +256,11 @@ export async function saveTableCache(
 ): Promise<void> {
 	const file = await readTableCacheFile();
 	file[connectionId] = cache;
-	await writeFile(tableCachePath, JSON.stringify(file, null, 2), "utf-8");
+	await writeFile(
+		resolveDataPath("table-cache.json"),
+		JSON.stringify(file, null, 2),
+		"utf-8",
+	);
 }
 
 function safeParse<T>(schema: z.ZodType<T>, data: unknown): T | null {
@@ -332,3 +381,8 @@ function mapDriverToDBType(driver: string): DBType | null {
 function createDeterministicId(value: string): string {
 	return createHash("sha1").update(value).digest("hex").slice(0, 12);
 }
+
+export const __persistenceInternals = {
+	normalizeConnectionEntry,
+	connectionSchema,
+} as const;

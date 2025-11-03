@@ -1,12 +1,18 @@
 import { Box, Text, useInput } from "ink";
-import SelectInput from "ink-select-input";
 import type React from "react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActionType } from "../state/actions.js";
 import { useAppDispatch, useAppState } from "../state/context.js";
 import { fetchColumns, fetchTables } from "../state/effects.js";
 import type { TableInfo } from "../types/state.js";
 import { ViewState } from "../types/state.js";
+import {
+	getSelectionBackground,
+	getSelectionIndicator,
+	getSelectionTextColor,
+	isSelectionBold,
+	isSelectionDimmed,
+} from "../utils/selection-theme.js";
 
 const buildLabel = (table: TableInfo) => {
 	const schema = table.schema ? `${table.schema}.` : "";
@@ -16,14 +22,36 @@ const buildLabel = (table: TableInfo) => {
 export const TablesView: React.FC = () => {
 	const dispatch = useAppDispatch();
 	const state = useAppState();
+	const [selectedIndex, setSelectedIndex] = useState(0);
 
 	useInput((input, key) => {
+		// Shortcuts
 		if (input === "q" && state.activeConnection) {
 			dispatch({ type: ActionType.SetView, view: ViewState.Query });
+			return;
 		}
 		if (input === "h" && (state.queryHistory?.length ?? 0) > 0) {
 			dispatch({ type: ActionType.SetView, view: ViewState.QueryHistory });
+			return;
 		}
+
+		// Navigation
+		if (key.upArrow && state.tables.length > 0) {
+			setSelectedIndex((prev) => Math.max(0, prev - 1));
+			return;
+		}
+		if (key.downArrow && state.tables.length > 0) {
+			setSelectedIndex((prev) => Math.min(state.tables.length - 1, prev + 1));
+			return;
+		}
+
+		// Selection
+		if (key.return && state.tables.length > 0) {
+			handleSelect(state.tables[selectedIndex]);
+			return;
+		}
+
+		// Exit
 		if (key.escape) {
 			dispatch({ type: ActionType.ClearActiveConnection });
 			dispatch({ type: ActionType.SetView, view: ViewState.Connection });
@@ -50,13 +78,12 @@ export const TablesView: React.FC = () => {
 		state.loading,
 	]);
 
-	const items = useMemo(() => {
-		return state.tables.map((table) => ({
-			label: buildLabel(table),
-			value: `${table.schema ?? "default"}:${table.name}`,
-			table,
-		}));
-	}, [state.tables]);
+	// Reset selection when tables change
+	useEffect(() => {
+		if (selectedIndex >= state.tables.length && state.tables.length > 0) {
+			setSelectedIndex(state.tables.length - 1);
+		}
+	}, [state.tables.length, selectedIndex]);
 
 	const handleSelect = (table: TableInfo) => {
 		dispatch({ type: ActionType.SetSelectedTable, table });
@@ -109,22 +136,53 @@ export const TablesView: React.FC = () => {
 		);
 	}
 
+	const getTableIcon = (type: TableInfo["type"]) => {
+		switch (type) {
+			case "view":
+				return "👁️  ";
+			case "materialized-view":
+				return "📊 ";
+			case "table":
+			default:
+				return "📋 ";
+		}
+	};
+
 	return (
 		<Box flexDirection="column">
 			<Text>
 				Connected to <Text color="cyan">{state.activeConnection.name}</Text>
 			</Text>
 			<Text>Select a table to preview data:</Text>
-			<Box marginTop={1}>
-				<SelectInput
-					items={items}
-					onSelect={(item) => {
-						const found = items.find((entry) => entry.value === item.value);
-						if (found) {
-							handleSelect(found.table);
-						}
-					}}
-				/>
+			<Box marginTop={1} flexDirection="column">
+				{state.tables.map((table, index) => {
+					const isSelected = index === selectedIndex;
+					const indicator = getSelectionIndicator(isSelected);
+					const textColor = getSelectionTextColor(isSelected);
+					const bold = isSelectionBold(isSelected);
+					const dimColor = isSelectionDimmed(isSelected);
+					const backgroundColor = getSelectionBackground(isSelected);
+					const label = buildLabel(table);
+
+					return (
+						<Box key={label}>
+							<Text color={indicator.color} backgroundColor={backgroundColor}>
+								{indicator.symbol}{" "}
+							</Text>
+							<Text backgroundColor={backgroundColor}>
+								{getTableIcon(table.type)}
+							</Text>
+							<Text
+								color={textColor}
+								bold={bold}
+								dimColor={dimColor}
+								backgroundColor={backgroundColor}
+							>
+								{label}
+							</Text>
+						</Box>
+					);
+				})}
 			</Box>
 			<Box marginTop={1}>
 				<Text dimColor>

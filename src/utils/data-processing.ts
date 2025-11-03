@@ -7,16 +7,46 @@ export function isNumeric(value: unknown): boolean {
 }
 
 export function isDateLike(value: unknown): boolean {
-	if (value instanceof Date) return true;
+	if (value instanceof Date) {
+		return !Number.isNaN(value.getTime());
+	}
 	if (typeof value !== "string") return false;
+
+	const trimmed = value.trim();
+	if (!trimmed) return false;
 
 	const datePatterns = [
 		/^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD
-		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/, // ISO 8601
+		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})?$/, // ISO 8601
 		/^\d{2}\/\d{2}\/\d{4}$/, // MM/DD/YYYY
 	];
 
-	return datePatterns.some((pattern) => pattern.test(value));
+	if (!datePatterns.some((pattern) => pattern.test(trimmed))) {
+		return false;
+	}
+
+	const parsed = new Date(trimmed);
+	return !Number.isNaN(parsed.getTime());
+}
+
+function getSortWeight(value: unknown): number {
+	if (value === null) {
+		return 0;
+	}
+
+	if (value instanceof Date || typeof value === "number") {
+		return 1;
+	}
+
+	if (value === undefined) {
+		return 2;
+	}
+
+	if (typeof value === "string" && (isNumeric(value) || isDateLike(value))) {
+		return 1;
+	}
+
+	return 3;
 }
 
 export function parseValue(value: unknown): number | Date | string {
@@ -48,6 +78,18 @@ export function compareValues(
 	b: unknown,
 	direction: "asc" | "desc",
 ): number {
+	if (a === b) {
+		return 0;
+	}
+
+	const weightA = getSortWeight(a);
+	const weightB = getSortWeight(b);
+
+	if (weightA !== weightB) {
+		const comparison = weightA < weightB ? -1 : 1;
+		return direction === "asc" ? comparison : -comparison;
+	}
+
 	const parsedA = parseValue(a);
 	const parsedB = parseValue(b);
 
@@ -59,8 +101,6 @@ export function compareValues(
 		comparison = parsedA.getTime() - parsedB.getTime();
 	} else if (parsedA instanceof Date) {
 		comparison = -1; // Dates come after strings
-	} else if (parsedB instanceof Date) {
-		comparison = 1;
 	} else {
 		const strA = String(parsedA).toLowerCase();
 		const strB = String(parsedB).toLowerCase();

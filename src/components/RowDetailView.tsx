@@ -7,6 +7,10 @@ import type { ColumnInfo, DataRow, TableInfo } from "../types/state.js";
 import { ViewState } from "../types/state.js";
 import { copyToClipboard } from "../utils/clipboard.js";
 import { getColorForDataType } from "../utils/color-mapping.js";
+import {
+	getSelectionBackground,
+	getSelectionIndicator,
+} from "../utils/selection-theme.js";
 import { ViewBuilder } from "./ViewBuilder.js";
 
 const FIELDS_PER_PAGE = 10;
@@ -294,9 +298,10 @@ export const RowDetailView: React.FC = () => {
 	}
 	if (fields.length > 0) {
 		subtitleParts.push(`${fields.length} fields`);
-		subtitleParts.push(`Fields ${pageStart + 1}-${pageEnd}`);
 	}
-	subtitleParts.push(`Page ${currentPage + 1}/${totalPages}`);
+	if (totalPages > 1) {
+		subtitleParts.push(`Page ${currentPage + 1}/${totalPages}`);
+	}
 
 	const labelWidth = computeLabelWidth(state.columns);
 
@@ -351,64 +356,52 @@ export const RowDetailView: React.FC = () => {
 		<ViewBuilder
 			title="Row Details"
 			subtitle={subtitleParts.join(" • ")}
-			footer="↑/↓ Field • ←/→ Page • PgUp/PgDn Jump • v View value • c Copy value • C Copy row • Esc Back"
+			footer="↑/↓ Navigate • ←/→ Page • v View • c Copy • C Copy row • Esc Back"
 		>
 			<Box flexDirection="column">
-				<Box
-					flexDirection="row"
-					justifyContent="space-between"
-					marginBottom={1}
-				>
-					<Text color="gray" dimColor>
-						{fields.length > 0
-							? `Fields ${pageStart + 1}–${pageEnd} of ${fields.length}`
-							: "No fields"}
-					</Text>
-					<Text color="gray" dimColor>
-						{renderPaginationLabel(currentPage, totalPages)}
-					</Text>
-				</Box>
 				{visibleFields.map(({ column, value }, index) => {
 					const globalIndex = pageStart + index;
 					const isSelected = globalIndex === selectedFieldIndex;
 					const valueColor = getValueColor(column, value, isSelected);
 					const preview = formatPreviewValue(value, previewWidth);
+					const metadata = [
+						column.dataType,
+						column.isPrimaryKey ? "PK" : null,
+						column.nullable ? "null" : null,
+					]
+						.filter(Boolean)
+						.join(" ");
+
+					const indicator = getSelectionIndicator(isSelected);
+					const backgroundColor = getSelectionBackground(isSelected);
 
 					return (
-						<Box
-							key={column.name}
-							flexDirection="column"
-							marginBottom={1}
-							paddingLeft={isSelected ? 0 : 1}
-						>
-							<Box flexDirection="row">
-								<Text color={isSelected ? "cyan" : "gray"}>
-									{isSelected ? "▶ " : "  "}
-								</Text>
-								<Text color={isSelected ? "white" : "cyan"} bold={isSelected}>
-									{formatLabel(column, labelWidth)}
-								</Text>
-								<Text color={isSelected ? "white" : "gray"} dimColor>
-									{` ${column.dataType}`}
-									{column.isPrimaryKey ? " • PK" : ""}
-									{column.nullable ? " • nullable" : ""}
-								</Text>
-							</Box>
-
-							<Box marginLeft={isSelected ? 2 : 3}>
-								<Text color={valueColor}>{preview}</Text>
+						<Box key={column.name} flexDirection="row">
+							<Text color={indicator.color} backgroundColor={backgroundColor}>
+								{indicator.symbol}{" "}
+							</Text>
+							<Box flexDirection="column" flexGrow={1}>
+								<Box flexDirection="row">
+									<Text
+										color={isSelected ? "white" : "cyan"}
+										bold={isSelected}
+										backgroundColor={backgroundColor}
+									>
+										{column.name}
+									</Text>
+									<Text color="gray" dimColor backgroundColor={backgroundColor}>
+										{` (${metadata})`}
+									</Text>
+								</Box>
+								<Box marginLeft={0}>
+									<Text color={valueColor} backgroundColor={backgroundColor}>
+										{preview}
+									</Text>
+								</Box>
 							</Box>
 						</Box>
 					);
 				})}
-
-				{totalPages > 1 && (
-					<Box marginTop={1}>
-						<Text color="gray" dimColor>
-							{renderPaginationIndicators(currentPage, totalPages)}
-						</Text>
-					</Box>
-				)}
 			</Box>
 		</ViewBuilder>
 	);

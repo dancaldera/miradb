@@ -20,6 +20,7 @@ import type {
 import { DBType, ViewState } from "../types/state.js";
 import { processRows } from "../utils/data-processing.js";
 import { exportData, formatExportSummary } from "../utils/export.js";
+import { historyHelpers } from "../utils/history.js";
 import {
 	loadConnections,
 	loadQueryHistory,
@@ -112,6 +113,24 @@ export async function connectToDatabase(
 			type: ActionType.SetInfo,
 			message: "Database connection established.",
 		});
+
+		// Add history entry for connection
+		dispatch({
+			type: ActionType.AddViewHistoryEntry,
+			entry: historyHelpers.connectionEstablished(
+				connectionInfo.name,
+				connectionInfo.type,
+			),
+		});
+		// Add breadcrumb for database
+		dispatch({
+			type: ActionType.AddBreadcrumb,
+			breadcrumb: {
+				label: connectionInfo.name,
+				view: ViewState.Connection,
+			},
+		});
+
 		dispatch({ type: ActionType.SetView, view: ViewState.Tables });
 
 		if (existing) {
@@ -133,7 +152,23 @@ export async function connectToDatabase(
 			: [...state.savedConnections, connectionInfo];
 		await persistConnections(dispatch, updatedConnections);
 
-		await fetchTables(dispatch, config);
+		const tables = await fetchTables(dispatch, config);
+
+		// Add history entry for tables loaded (only after successful fetch)
+		if (tables.length > 0) {
+			dispatch({
+				type: ActionType.AddViewHistoryEntry,
+				entry: historyHelpers.tablesLoaded(tables.length),
+			});
+			// Add breadcrumb for tables view
+			dispatch({
+				type: ActionType.AddBreadcrumb,
+				breadcrumb: {
+					label: "Tables",
+					view: ViewState.Tables,
+				},
+			});
+		}
 	} catch (error) {
 		if (error instanceof ConnectionError || error instanceof DatabaseError) {
 			dispatch({ type: ActionType.SetError, error });
@@ -151,7 +186,7 @@ export async function connectToDatabase(
 export async function fetchTables(
 	dispatch: AppDispatch,
 	dbConfig: DatabaseConfig,
-): Promise<void> {
+): Promise<TableInfo[]> {
 	dispatch({ type: ActionType.StartLoading });
 
 	let connection: DatabaseConnection | null = null;
@@ -220,11 +255,13 @@ export async function fetchTables(
 		});
 
 		dispatch({ type: ActionType.SetTables, tables });
+		return tables;
 	} catch (error) {
 		dispatch({
 			type: ActionType.SetError,
 			error: error instanceof Error ? error.message : "Failed to fetch tables.",
 		});
+		return [];
 	} finally {
 		if (connection) {
 			try {
@@ -836,16 +873,16 @@ function buildColumnQuery(
 	table: TableInfo,
 ): { query: string; params?: unknown[] } {
 	const schema = table.schema;
-	switch (dbType) {
-		case DBType.SQLite: {
-			const tableName = quoteIdentifier(dbType, table.name);
-			return {
-				query: `PRAGMA table_info(${tableName});`,
-			};
-		}
-		case DBType.MySQL: {
-			return {
-				query: `
+	if (dbType === DBType.SQLite) {
+		const tableName = quoteIdentifier(dbType, table.name);
+		return {
+			query: `PRAGMA table_info(${tableName});`,
+		};
+	}
+
+	if (dbType === DBType.MySQL) {
+		return {
+			query: `
           SELECT
             COLUMN_NAME AS column_name,
             DATA_TYPE AS data_type,
@@ -857,14 +894,13 @@ function buildColumnQuery(
             AND table_name = ?
           ORDER BY ORDINAL_POSITION
         `,
-				params: [schema ?? "", table.name],
-			};
-		}
-		case DBType.PostgreSQL:
-		default: {
-			const params = schema ? [table.name, schema] : [table.name, "public"];
-			return {
-				query: `
+			params: [schema ?? "", table.name],
+		};
+	}
+
+	const params = schema ? [table.name, schema] : [table.name, "public"];
+	return {
+		query: `
           SELECT
             cols.column_name,
             cols.data_type,
@@ -888,10 +924,8 @@ function buildColumnQuery(
             AND cols.table_schema = $2
           ORDER BY cols.ordinal_position
         `,
-				params,
-			};
-		}
-	}
+		params,
+	};
 }
 
 function mapColumnRow(dbType: DBType, row: QueryRow): ColumnInfo {
@@ -1095,3 +1129,16 @@ function quoteIdentifier(dbType: DBType, identifier: string): string {
 			return `"${identifier.replace(/"/g, '""')}"`;
 	}
 }
+
+export const __internal = {
+	buildColumnQuery,
+	mapColumnRow,
+	buildTableDataQuery,
+	buildTableReference,
+	extractCount,
+	buildSearchWhereClause,
+	buildSearchExpression,
+	selectSearchOrderColumn,
+	buildSearchQueries,
+	quoteIdentifier,
+} as const;

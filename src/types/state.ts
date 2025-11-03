@@ -83,6 +83,25 @@ export interface Notification {
 	createdAt: number;
 }
 
+export interface ViewHistoryEntry {
+	id: string;
+	view: ViewState;
+	timestamp: number;
+	summary: string;
+	data?: {
+		dbType?: DBType;
+		tableName?: string;
+		connectionName?: string;
+		query?: string;
+		[key: string]: unknown;
+	};
+}
+
+export interface BreadcrumbSegment {
+	label: string;
+	view: ViewState;
+}
+
 export interface AppState {
 	currentView: ViewState;
 	dbType: DBType | null;
@@ -113,6 +132,8 @@ export interface AppState {
 	searchOffset: number;
 	searchHasMore: boolean;
 	searchSelectedIndex: number | null;
+	viewHistory: ViewHistoryEntry[];
+	breadcrumbs: BreadcrumbSegment[];
 }
 
 export const initialAppState: AppState = {
@@ -145,4 +166,6 @@ export const initialAppState: AppState = {
 	searchOffset: 0,
 	searchHasMore: false,
 	searchSelectedIndex: null,
+	viewHistory: [],
+	breadcrumbs: [],
 };

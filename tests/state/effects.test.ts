@@ -19,6 +19,7 @@ vi.mock("../../src/utils/persistence.js", () => ({
 }));
 
 import { beforeEach, describe, expect, it } from "bun:test";
+import { ConnectionError } from "../../src/database/errors.js";
 import * as effects from "../../src/state/effects.js";
 
 const {
@@ -30,7 +31,18 @@ const {
 	fetchTables,
 	removeSavedConnection,
 	updateSavedConnection,
+	__internal,
 } = effects;
+
+const {
+	buildColumnQuery,
+	mapColumnRow,
+	buildTableDataQuery,
+	buildTableReference,
+	extractCount,
+	buildSearchWhereClause,
+	selectSearchOrderColumn,
+} = __internal;
 
 import { createDatabaseConnection } from "../../src/database/connection.js";
 import { ActionType } from "../../src/state/actions.js";
@@ -839,5 +851,600 @@ describe("effects", () => {
 			]),
 		);
 		expect(persistence.saveConnections).toHaveBeenCalled();
+	});
+
+	it("initializeApp notifies about skipped connections", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		loadConnectionsMock.mockResolvedValueOnce({
+			connections: [],
+			normalized: 0,
+			skipped: 2,
+		});
+		loadQueryHistoryMock.mockResolvedValueOnce([]);
+
+		await effects.initializeApp(dispatch);
+
+		expect(persistence.saveConnections).toHaveBeenCalledWith([]);
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.AddNotification,
+				notification: expect.objectContaining({
+					message: "Skipped 2 invalid connection entries.",
+					level: "warning",
+				}),
+			}),
+		);
+	});
+
+	it("initializeApp reports initialization errors", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		loadConnectionsMock.mockRejectedValueOnce(new Error("boom"));
+		loadQueryHistoryMock.mockResolvedValueOnce([]);
+
+		await effects.initializeApp(dispatch);
+
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.SetError,
+				error: "boom",
+			}),
+		);
+	});
+
+	it("connectToDatabase surfaces database connection errors", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const state = {
+			...initialAppState,
+			savedConnections: [],
+		};
+		const connectionStub = {
+			connect: vi.fn(async () => {
+				throw new ConnectionError("unreachable");
+			}),
+			close: vi.fn(async () => {}),
+		};
+		createDatabaseConnectionMock.mockReturnValueOnce(connectionStub as any);
+
+		await connectToDatabase(dispatch, state, {
+			type: DBType.PostgreSQL,
+			connectionString: "postgres://fail",
+		});
+
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.SetError,
+				error: expect.any(ConnectionError),
+			}),
+		);
+	});
+
+	it("fetchTables dispatches error when query fails", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const failingConnection = {
+			connect: vi.fn(async () => {}),
+			query: vi.fn(async () => {
+				throw new Error("tables failed");
+			}),
+			close: vi.fn(async () => {}),
+		};
+		createDatabaseConnectionMock.mockReturnValueOnce(failingConnection as any);
+
+		await fetchTables(dispatch, {
+			type: DBType.PostgreSQL,
+			connectionString: "postgres://fail",
+		});
+
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.SetError,
+				error: "tables failed",
+			}),
+		);
+		expect(failingConnection.close).toHaveBeenCalled();
+	});
+
+	it("fetchColumns throttles rapid refresh attempts", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const nowSpy = vi.spyOn(Date, "now").mockReturnValue(5_000);
+		const state = {
+			...initialAppState,
+			refreshTimestamps: { "public|users": 5_000 },
+		};
+
+		await fetchColumns(
+			dispatch,
+			state,
+			{ type: DBType.PostgreSQL, connectionString: "postgres://example" },
+			{ name: "users", schema: "public", type: "table" },
+		);
+
+		expect(createDatabaseConnectionMock).not.toHaveBeenCalled();
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.AddNotification,
+				notification: expect.objectContaining({
+					message: "Please wait before refreshing this table again.",
+				}),
+			}),
+		);
+		nowSpy.mockRestore();
+	});
+
+	it("fetchColumns dispatches error on failure", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const failingConnection = {
+			connect: vi.fn(async () => {}),
+			query: vi.fn(async () => {
+				throw new Error("columns failed");
+			}),
+			close: vi.fn(async () => {}),
+		};
+		createDatabaseConnectionMock.mockReturnValueOnce(failingConnection as any);
+
+		const state = {
+			...initialAppState,
+			activeConnection: {
+				id: "conn-error",
+				name: "Err",
+				type: DBType.PostgreSQL,
+				connectionString: "postgres://err",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			},
+			tableCache: {},
+		};
+
+		await fetchColumns(
+			dispatch,
+			state,
+			{ type: DBType.PostgreSQL, connectionString: "postgres://err" },
+			{ name: "users", schema: "public", type: "table" },
+		);
+
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.SetError,
+				error: "columns failed",
+			}),
+		);
+	});
+
+	it("fetchTableData dispatches error on failure", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const failingConnection = {
+			connect: vi.fn(async () => {}),
+			query: vi.fn(async () => {
+				throw new Error("rows failed");
+			}),
+			close: vi.fn(async () => {}),
+		};
+		createDatabaseConnectionMock.mockReturnValueOnce(failingConnection as any);
+
+		const state = {
+			...initialAppState,
+			activeConnection: {
+				id: "conn-error",
+				name: "Err",
+				type: DBType.PostgreSQL,
+				connectionString: "postgres://err",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			},
+			tableCache: {},
+		};
+
+		await fetchTableData(
+			dispatch,
+			state,
+			{ type: DBType.PostgreSQL, connectionString: "postgres://err" },
+			{ name: "users", schema: "public", type: "table" },
+			{ offset: 0, limit: 10 },
+		);
+
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.SetError,
+				error: "rows failed",
+			}),
+		);
+	});
+
+	it("searchTableRows requires column metadata", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const state = { ...initialAppState };
+
+		await effects.searchTableRows(
+			dispatch,
+			state,
+			{ type: DBType.PostgreSQL, connectionString: "postgres://example" },
+			{ name: "users", schema: "public", type: "table" },
+			[],
+			{ term: "alice" },
+		);
+
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.SetError,
+				error: "Column metadata is required before searching.",
+			}),
+		);
+		expect(createDatabaseConnectionMock).not.toHaveBeenCalled();
+	});
+
+	it("clearTableCacheEntry returns early when cache context missing", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const state = { ...initialAppState };
+
+		await clearTableCacheEntry(
+			dispatch,
+			state,
+			{ type: DBType.PostgreSQL, connectionString: "postgres://example" },
+			{ name: "users", schema: "public", type: "table" },
+		);
+
+		expect(saveTableCacheMock).not.toHaveBeenCalled();
+	});
+
+	it("clearConnectionCache ignores requests without active connection", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const state = { ...initialAppState };
+
+		await clearConnectionCache(dispatch, state);
+
+		expect(saveTableCacheMock).not.toHaveBeenCalled();
+	});
+
+	it("clearConnectionCache reports persistence errors", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const state = {
+			...initialAppState,
+			activeConnection: {
+				id: "conn",
+				name: "Test",
+				type: DBType.PostgreSQL,
+				connectionString: "postgres://example",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			},
+		};
+		saveTableCacheMock.mockRejectedValueOnce(new Error("persist failed"));
+
+		await clearConnectionCache(dispatch, state);
+
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.SetError,
+				error: "persist failed",
+			}),
+		);
+	});
+
+	it("removeSavedConnection returns when nothing matches", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const state = {
+			...initialAppState,
+			savedConnections: [
+				{
+					id: "abc",
+					name: "Prod",
+					type: DBType.PostgreSQL,
+					connectionString: "postgres://prod",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				},
+			],
+		};
+
+		await removeSavedConnection(dispatch, state, "missing");
+
+		expect(dispatch).not.toHaveBeenCalled();
+	});
+
+	it("updateSavedConnection returns when connection is missing", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const state = { ...initialAppState };
+
+		await updateSavedConnection(dispatch, state, "missing", { name: "New" });
+
+		expect(dispatch).not.toHaveBeenCalled();
+	});
+
+	it("updateSavedConnection rejects empty names", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const state = {
+			...initialAppState,
+			savedConnections: [
+				{
+					id: "abc",
+					name: "Prod",
+					type: DBType.PostgreSQL,
+					connectionString: "postgres://prod",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				},
+			],
+		};
+
+		await updateSavedConnection(dispatch, state, "abc", { name: "   " });
+
+		expect(persistence.saveConnections).not.toHaveBeenCalled();
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.AddNotification,
+				notification: expect.objectContaining({
+					message: "Connection name cannot be empty.",
+				}),
+			}),
+		);
+	});
+
+	it("updateSavedConnection rejects unsupported database types", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const state = {
+			...initialAppState,
+			savedConnections: [
+				{
+					id: "abc",
+					name: "Prod",
+					type: DBType.PostgreSQL,
+					connectionString: "postgres://prod",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				},
+			],
+		};
+
+		await updateSavedConnection(dispatch, state, "abc", {
+			type: "oracle" as DBType,
+		});
+
+		expect(persistence.saveConnections).not.toHaveBeenCalled();
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.AddNotification,
+				notification: expect.objectContaining({
+					message: "Unsupported database type.",
+				}),
+			}),
+		);
+	});
+
+	it("updateSavedConnection reports when nothing changed", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const connection = {
+			id: "abc",
+			name: "Prod",
+			type: DBType.PostgreSQL,
+			connectionString: "postgres://prod",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+		const state = {
+			...initialAppState,
+			savedConnections: [connection],
+		};
+
+		await updateSavedConnection(dispatch, state, "abc", { name: "Prod" });
+
+		expect(persistence.saveConnections).not.toHaveBeenCalled();
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.AddNotification,
+				notification: expect.objectContaining({
+					message: "No changes detected.",
+				}),
+			}),
+		);
+	});
+
+	it("fetchColumns maps mysql metadata", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const mysqlConnection = {
+			connect: vi.fn(async () => {}),
+			query: vi.fn(async () => ({
+				rows: [
+					{
+						column_name: "id",
+						data_type: "int",
+						is_nullable: "NO",
+						column_default: "0",
+						column_key: "PRI",
+					},
+				],
+				rowCount: 1,
+			})),
+			close: vi.fn(async () => {}),
+		};
+		createDatabaseConnectionMock.mockReturnValueOnce(mysqlConnection as any);
+
+		const state = {
+			...initialAppState,
+			activeConnection: {
+				id: "conn",
+				name: "MySQL",
+				type: DBType.MySQL,
+				connectionString: "mysql://example",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			},
+			tableCache: {},
+		};
+
+		await fetchColumns(
+			dispatch,
+			state,
+			{ type: DBType.MySQL, connectionString: "mysql://example" },
+			{ name: "users", schema: "public", type: "table" },
+		);
+
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.SetColumns,
+				columns: [
+					expect.objectContaining({
+						name: "id",
+						dataType: "int",
+						isPrimaryKey: true,
+					}),
+				],
+			}),
+		);
+		expect(persistence.saveTableCache).toHaveBeenCalled();
+	});
+
+	it("fetchTableData uses mysql pagination syntax", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		let capturedSql = "";
+		const mysqlConnection = {
+			connect: vi.fn(async () => {}),
+			query: vi.fn(async (sql: string) => {
+				capturedSql = sql;
+				return { rows: [], rowCount: 0 };
+			}),
+			close: vi.fn(async () => {}),
+		};
+		createDatabaseConnectionMock.mockReturnValueOnce(mysqlConnection as any);
+
+		const state = {
+			...initialAppState,
+			activeConnection: {
+				id: "conn",
+				name: "MySQL",
+				type: DBType.MySQL,
+				connectionString: "mysql://example",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			},
+			tableCache: {},
+		};
+
+		await fetchTableData(
+			dispatch,
+			state,
+			{ type: DBType.MySQL, connectionString: "mysql://example" },
+			{ name: "users", schema: "public", type: "table" },
+			{ offset: 0, limit: 10 },
+		);
+
+		expect(capturedSql).toContain("LIMIT 0, 10");
+	});
+
+	it("searchTableRows parses string counts", async () => {
+		const dispatch = vi.fn() as Dispatch;
+		const queryMock = vi
+			.fn()
+			.mockResolvedValueOnce({ rows: [{ total_count: "5" }], rowCount: 1 })
+			.mockResolvedValueOnce({ rows: [{ id: 1 }], rowCount: 1 });
+		const connection = {
+			connect: vi.fn(async () => {}),
+			query: queryMock,
+			close: vi.fn(async () => {}),
+		};
+		createDatabaseConnectionMock.mockReturnValueOnce(connection as any);
+
+		const state = { ...initialAppState };
+		await effects.searchTableRows(
+			dispatch,
+			state,
+			{ type: DBType.PostgreSQL, connectionString: "postgres://example" },
+			{ name: "users", schema: "public", type: "table" },
+			[
+				{
+					name: "id",
+					dataType: "integer",
+					nullable: false,
+					isPrimaryKey: true,
+				},
+			],
+			{ term: "a" },
+		);
+
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: ActionType.SetSearchResultsPage,
+				totalCount: 5,
+			}),
+		);
+	});
+
+	it("extractCount handles bigint values", () => {
+		expect(extractCount({ total_count: BigInt(7) })).toBe(7);
+	});
+
+	it("buildSearchWhereClause falls back to tautology without columns", () => {
+		expect(buildSearchWhereClause(DBType.PostgreSQL, [])).toBe("1=1");
+	});
+
+	it("buildColumnQuery generates sqlite pragma statement", () => {
+		const result = buildColumnQuery(DBType.SQLite, {
+			name: "users",
+			schema: undefined,
+			type: "table",
+		});
+		expect(result).toEqual({ query: 'PRAGMA table_info("users");' });
+	});
+
+	it("buildColumnQuery generates postgres metadata query", () => {
+		const result = buildColumnQuery(DBType.PostgreSQL, {
+			name: "users",
+			schema: "public",
+			type: "table",
+		});
+		expect(result).toEqual(
+			expect.objectContaining({
+				params: ["users", "public"],
+				query: expect.stringContaining("information_schema.columns"),
+			}),
+		);
+	});
+
+	it("mapColumnRow maps sqlite metadata", () => {
+		const column = mapColumnRow(DBType.SQLite, {
+			name: "id",
+			type: "integer",
+			notnull: 0,
+			dflt_value: "0",
+			pk: 1,
+		});
+		expect(column).toEqual(
+			expect.objectContaining({
+				name: "id",
+				dataType: "integer",
+				nullable: true,
+				defaultValue: "0",
+				isPrimaryKey: true,
+			}),
+		);
+	});
+
+	it("buildTableDataQuery formats sqlite pagination", () => {
+		const sql = buildTableDataQuery(
+			DBType.SQLite,
+			{ name: "users", schema: undefined, type: "table" },
+			5,
+			10,
+		);
+		expect(sql).toBe('SELECT * FROM "users" LIMIT 5 OFFSET 10');
+	});
+
+	it("buildTableReference quotes schema-qualified tables", () => {
+		const ref = buildTableReference(DBType.PostgreSQL, {
+			name: "users",
+			schema: "public",
+			type: "table",
+		});
+		expect(ref).toBe('"public"."users"');
+	});
+
+	it("extractCount treats non-numeric strings as zero", () => {
+		expect(extractCount({ total_count: "not-a-number" })).toBe(0);
+	});
+
+	it("extractCount returns zero for unsupported value types", () => {
+		expect(extractCount({ total_count: { unexpected: true } })).toBe(0);
+	});
+
+	it("selectSearchOrderColumn returns null when no columns provided", () => {
+		expect(selectSearchOrderColumn(DBType.PostgreSQL, [])).toBeNull();
 	});
 });

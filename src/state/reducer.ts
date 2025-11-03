@@ -276,6 +276,9 @@ export function appReducer(
 				break;
 
 			case ActionType.AddQueryHistoryItem:
+				if (!draft.queryHistory) {
+					draft.queryHistory = [];
+				}
 				draft.queryHistory.unshift(action.item);
 				break;
 
@@ -305,6 +308,37 @@ export function appReducer(
 
 			case ActionType.ClearSearch:
 				resetSearchState(draft);
+				break;
+
+			case ActionType.AddViewHistoryEntry: {
+				// Prevent duplicate consecutive entries with the same summary
+				const lastEntry = draft.viewHistory[draft.viewHistory.length - 1];
+				if (!lastEntry || lastEntry.summary !== action.entry.summary) {
+					draft.viewHistory.push(action.entry);
+				}
+				break;
+			}
+
+			case ActionType.SetBreadcrumbs:
+				draft.breadcrumbs = action.breadcrumbs;
+				break;
+
+			case ActionType.AddBreadcrumb: {
+				// Prevent duplicate consecutive breadcrumbs with the same label and view
+				const lastCrumb = draft.breadcrumbs[draft.breadcrumbs.length - 1];
+				if (
+					!lastCrumb ||
+					lastCrumb.label !== action.breadcrumb.label ||
+					lastCrumb.view !== action.breadcrumb.view
+				) {
+					draft.breadcrumbs.push(action.breadcrumb);
+				}
+				break;
+			}
+
+			case ActionType.ClearHistory:
+				draft.viewHistory = [];
+				draft.breadcrumbs = [];
 				break;
 
 			default:

@@ -117,26 +117,26 @@ mirador/
 
 ```bash
 # Development
-bun run dev              # Start with hot-reload
-bun run start            # Run built version
+bun dev              # Start with hot-reload
+bun start            # Run built version
 
 # Building
 bun run build            # Full build (bundle + executable)
-bun run build:bundle     # Bundle to JavaScript only
-bun run build:compile    # Create standalone executable
-bun run build:exe        # Alias for build:compile
+bun build:bundle     # Bundle to JavaScript only
+bun build:compile    # Create standalone executable
+bun build:exe        # Alias for build:compile
 
 # Code Quality
-bun run lint             # Run Biome linter
-bun run lint:fix         # Fix linting issues
-bun run format           # Check code formatting
-bun run format:fix       # Format code
-bun run check            # Run all checks and fixes
-bun run type-check       # TypeScript type checking
+bun lint             # Run Biome linter
+bun lint:fix         # Fix linting issues
+bun format           # Check code formatting
+bun format:fix       # Format code
+bun check            # Run all checks and fixes
+bun type-check       # TypeScript type checking
 
 # Testing
-bun run test             # Run tests
-bun run test:coverage    # Run tests with coverage
+bun test             # Run tests
+bun test:coverage    # Run tests with coverage
 ```
 
 ### Architecture
@@ -228,7 +228,7 @@ Contributions are welcome! Please:
 ### Development Guidelines
 
 - Follow TypeScript strict mode
-- Use Biome for linting and formatting (`bun run check`)
+- Use Biome for linting and formatting (`bun check`)
 - Add tests for new features
 - Update documentation as needed
 
