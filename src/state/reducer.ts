@@ -176,6 +176,39 @@ export function appReducer(
 				}
 				break;
 
+			case ActionType.UpdateDataRowValue: {
+				const { columnName, value, rowIndex, table } = action;
+				if (rowIndex !== null && draft.dataRows[rowIndex]) {
+					draft.dataRows[rowIndex] = {
+						...draft.dataRows[rowIndex],
+						[columnName]: value,
+					};
+				}
+				if (draft.expandedRow) {
+					draft.expandedRow = {
+						...draft.expandedRow,
+						[columnName]: value,
+					};
+				}
+				const cacheKey = tableCacheKey(table ?? draft.selectedTable);
+				if (cacheKey && draft.tableCache[cacheKey]) {
+					const cache = draft.tableCache[cacheKey];
+					const targetIndex =
+						rowIndex !== null
+							? rowIndex
+							: draft.selectedRowIndex !== null
+								? draft.selectedRowIndex
+								: null;
+					if (targetIndex !== null && cache.rows[targetIndex]) {
+						cache.rows[targetIndex] = {
+							...cache.rows[targetIndex],
+							[columnName]: value,
+						};
+					}
+				}
+				break;
+			}
+
 			case ActionType.ClearSelectedTable:
 				draft.selectedTable = null;
 				draft.dataRows = [];

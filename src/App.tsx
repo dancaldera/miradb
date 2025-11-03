@@ -42,7 +42,8 @@ const AppContent: React.FC = () => {
 		if (
 			((key.ctrl && input.toLowerCase() === "s") ||
 				(!key.ctrl && key.meta && input.toLowerCase() === "s")) &&
-			state.currentView !== ViewState.SavedConnections
+			state.currentView !== ViewState.SavedConnections &&
+			state.currentView !== ViewState.RowDetail
 		) {
 			previousViewRef.current = null;
 			dispatch({ type: ActionType.SetView, view: ViewState.SavedConnections });

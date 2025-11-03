@@ -3,6 +3,7 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { ActionType } from "../state/actions.js";
 import { useAppDispatch, useAppState } from "../state/context.js";
+import { updateTableFieldValue } from "../state/effects.js";
 import type { ColumnInfo, DataRow, TableInfo } from "../types/state.js";
 import { ViewState } from "../types/state.js";
 import { copyToClipboard } from "../utils/clipboard.js";
@@ -32,6 +33,13 @@ export const RowDetailView: React.FC = () => {
 	const [selectedFieldIndex, setSelectedFieldIndex] = useState(0);
 	const [valueViewerOpen, setValueViewerOpen] = useState(false);
 	const [valueViewerScrollOffset, setValueViewerScrollOffset] = useState(0);
+	const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(
+		null,
+	);
+	const [editBuffer, setEditBuffer] = useState("");
+	const [editCursor, setEditCursor] = useState(0);
+	const [editScrollOffset, setEditScrollOffset] = useState(0);
+	const [isSavingEdit, setIsSavingEdit] = useState(false);
 
 	const currentRow = useMemo<DataRow | null>(() => {
 		if (state.expandedRow) return state.expandedRow;
@@ -50,6 +58,24 @@ export const RowDetailView: React.FC = () => {
 			value: currentRow ? currentRow[column.name] : null,
 		}));
 	}, [state.columns, currentRow]);
+	const selectedField = fields[selectedFieldIndex] ?? null;
+	const valueViewerLines = selectedField
+		? formatFullValue(selectedField.value)
+		: [];
+	const valueViewerVisibleLineCount = Math.max(4, terminalHeight - 8);
+	const valueViewerMaxScroll = Math.max(
+		0,
+		valueViewerLines.length - valueViewerVisibleLineCount,
+	);
+	const editingField =
+		editingFieldIndex !== null ? (fields[editingFieldIndex] ?? null) : null;
+	const editLines = useMemo(() => splitBuffer(editBuffer), [editBuffer]);
+	const editCursorLocation = useMemo(
+		() => indexToLineColumn(editBuffer, editCursor),
+		[editBuffer, editCursor],
+	);
+	const editCursorLine = editCursorLocation.line;
+	const editCursorColumn = editCursorLocation.column;
 
 	useEffect(() => {
 		if (fields.length === 0) {
@@ -61,15 +87,52 @@ export const RowDetailView: React.FC = () => {
 			setSelectedFieldIndex(fields.length - 1);
 		}
 	}, [fields.length, selectedFieldIndex]);
-	const selectedField = fields[selectedFieldIndex] ?? null;
-	const valueViewerLines = selectedField
-		? formatFullValue(selectedField.value)
-		: [];
-	const valueViewerVisibleLineCount = Math.max(4, terminalHeight - 8);
-	const valueViewerMaxScroll = Math.max(
-		0,
-		valueViewerLines.length - valueViewerVisibleLineCount,
-	);
+
+	useEffect(() => {
+		if (editingFieldIndex === null) {
+			return;
+		}
+		if (editingFieldIndex >= fields.length) {
+			setEditingFieldIndex(null);
+		}
+	}, [editingFieldIndex, fields.length]);
+
+	useEffect(() => {
+		if (editingFieldIndex === null) {
+			return;
+		}
+		setEditCursor((cursor) => Math.min(cursor, editBuffer.length));
+	}, [editingFieldIndex, editBuffer.length]);
+
+	useEffect(() => {
+		if (editingFieldIndex === null) {
+			return;
+		}
+		const totalLines = editLines.length;
+		setEditScrollOffset((offset) => {
+			const maxOffset = Math.max(0, totalLines - valueViewerVisibleLineCount);
+			return Math.min(offset, maxOffset);
+		});
+	}, [editingFieldIndex, editLines.length, valueViewerVisibleLineCount]);
+
+	useEffect(() => {
+		if (editingFieldIndex === null) {
+			return;
+		}
+		setEditScrollOffset((offset) =>
+			clampScrollOffset(
+				offset,
+				editCursorLine,
+				valueViewerVisibleLineCount,
+				editLines.length,
+			),
+		);
+	}, [
+		editingFieldIndex,
+		editCursorLine,
+		editLines.length,
+		valueViewerVisibleLineCount,
+	]);
 
 	const totalPages = Math.max(1, Math.ceil(fields.length / FIELDS_PER_PAGE));
 	const currentPage = Math.floor(selectedFieldIndex / FIELDS_PER_PAGE);
@@ -84,7 +147,209 @@ export const RowDetailView: React.FC = () => {
 		setValueViewerScrollOffset((prev) => Math.min(prev, valueViewerMaxScroll));
 	}, [valueViewerOpen, valueViewerMaxScroll]);
 
+	const applyEdit = (buffer: string, cursorPosition: number) => {
+		const clampedCursor = Math.max(0, Math.min(cursorPosition, buffer.length));
+		const lines = splitBuffer(buffer);
+		const cursorLocation = indexToLineColumn(buffer, clampedCursor);
+		const adjustedOffset = clampScrollOffset(
+			editScrollOffset,
+			cursorLocation.line,
+			valueViewerVisibleLineCount,
+			lines.length,
+		);
+		setEditBuffer(buffer);
+		setEditCursor(clampedCursor);
+		setEditScrollOffset(adjustedOffset);
+	};
+
+	const moveCursor = (nextPosition: number) => {
+		const clampedCursor = Math.max(
+			0,
+			Math.min(nextPosition, editBuffer.length),
+		);
+		const adjustedOffset = clampScrollOffset(
+			editScrollOffset,
+			indexToLineColumn(editBuffer, clampedCursor).line,
+			valueViewerVisibleLineCount,
+			editLines.length,
+		);
+		setEditCursor(clampedCursor);
+		setEditScrollOffset(adjustedOffset);
+	};
+
+	const handleEditSave = async () => {
+		if (editingFieldIndex === null || !editingField || !currentRow) {
+			return;
+		}
+		setIsSavingEdit(true);
+		const success = await updateTableFieldValue(
+			dispatch,
+			state,
+			state.selectedTable ?? null,
+			editingField.column,
+			state.selectedRowIndex,
+			currentRow,
+			editBuffer,
+		);
+		setIsSavingEdit(false);
+		if (success) {
+			setEditingFieldIndex(null);
+		}
+	};
+
+	const beginEditing = () => {
+		if (!selectedField) {
+			return;
+		}
+		const rawValue = stringifyValue(selectedField.value, true);
+		const initialBuffer = rawValue === "NULL" ? "" : rawValue;
+		const initialCursor = initialBuffer.length;
+		const lines = splitBuffer(initialBuffer);
+		const initialOffset = clampScrollOffset(
+			0,
+			indexToLineColumn(initialBuffer, initialCursor).line,
+			valueViewerVisibleLineCount,
+			lines.length,
+		);
+		setEditingFieldIndex(selectedFieldIndex);
+		setEditBuffer(initialBuffer);
+		setEditCursor(initialCursor);
+		setEditScrollOffset(initialOffset);
+		setValueViewerOpen(false);
+	};
+
 	useInput((input, key) => {
+		if (editingFieldIndex !== null) {
+			if (isSavingEdit) {
+				return;
+			}
+
+			if (key.escape) {
+				setEditingFieldIndex(null);
+				return;
+			}
+
+			if (key.ctrl && input.toLowerCase() === "l") {
+				setEditBuffer("");
+				setEditCursor(0);
+				setEditScrollOffset(0);
+				return;
+			}
+
+			if (
+				(key.ctrl && key.return) ||
+				(key.ctrl && input.toLowerCase() === "s")
+			) {
+				void handleEditSave();
+				return;
+			}
+
+			if (key.return) {
+				applyEdit(
+					`${editBuffer.slice(0, editCursor)}\n${editBuffer.slice(editCursor)}`,
+					editCursor + 1,
+				);
+				return;
+			}
+
+			if (key.backspace) {
+				if (editCursor === 0) {
+					return;
+				}
+				applyEdit(
+					`${editBuffer.slice(0, editCursor - 1)}${editBuffer.slice(editCursor)}`,
+					editCursor - 1,
+				);
+				return;
+			}
+
+			if ("delete" in key && (key as Record<string, unknown>).delete) {
+				if (editCursor >= editBuffer.length) {
+					return;
+				}
+				applyEdit(
+					`${editBuffer.slice(0, editCursor)}${editBuffer.slice(editCursor + 1)}`,
+					editCursor,
+				);
+				return;
+			}
+
+			if (key.leftArrow) {
+				moveCursor(editCursor - 1);
+				return;
+			}
+
+			if (key.rightArrow) {
+				moveCursor(editCursor + 1);
+				return;
+			}
+
+			if (key.upArrow) {
+				const target = lineColumnToIndex(
+					editLines,
+					Math.max(0, editCursorLine - 1),
+					editCursorColumn,
+				);
+				moveCursor(target);
+				return;
+			}
+
+			if (key.downArrow) {
+				const target = lineColumnToIndex(
+					editLines,
+					Math.min(editLines.length - 1, editCursorLine + 1),
+					editCursorColumn,
+				);
+				moveCursor(target);
+				return;
+			}
+
+			if (key.pageUp) {
+				const targetLine = Math.max(
+					0,
+					editCursorLine - valueViewerVisibleLineCount,
+				);
+				moveCursor(lineColumnToIndex(editLines, targetLine, editCursorColumn));
+				return;
+			}
+
+			if (key.pageDown) {
+				const targetLine = Math.min(
+					editLines.length - 1,
+					editCursorLine + valueViewerVisibleLineCount,
+				);
+				moveCursor(lineColumnToIndex(editLines, targetLine, editCursorColumn));
+				return;
+			}
+
+			if ("home" in key && (key as Record<string, unknown>).home) {
+				moveCursor(lineColumnToIndex(editLines, editCursorLine, 0));
+				return;
+			}
+
+			if ("end" in key && (key as Record<string, unknown>).end) {
+				const lineLength = editLines[editCursorLine]?.length ?? 0;
+				moveCursor(lineColumnToIndex(editLines, editCursorLine, lineLength));
+				return;
+			}
+
+			if (!key.ctrl && !key.meta && input === "\t") {
+				applyEdit(
+					`${editBuffer.slice(0, editCursor)}\t${editBuffer.slice(editCursor)}`,
+					editCursor + 1,
+				);
+				return;
+			}
+
+			if (!key.ctrl && !key.meta && input.length === 1 && input >= " ") {
+				applyEdit(
+					`${editBuffer.slice(0, editCursor)}${input}${editBuffer.slice(editCursor)}`,
+					editCursor + 1,
+				);
+			}
+			return;
+		}
+
 		if (valueViewerOpen) {
 			if (key.escape || input === "q" || input === "b") {
 				setValueViewerOpen(false);
@@ -147,6 +412,11 @@ export const RowDetailView: React.FC = () => {
 						});
 					}
 				});
+				return;
+			}
+
+			if ((input === "e" || input === "E") && selectedField) {
+				beginEditing();
 				return;
 			}
 
@@ -239,6 +509,11 @@ export const RowDetailView: React.FC = () => {
 			return;
 		}
 
+		if ((input === "e" || input === "E") && selectedField) {
+			beginEditing();
+			return;
+		}
+
 		if (input === "c" && selectedField) {
 			const fullValue = stringifyValue(selectedField.value, true);
 			void copyToClipboard(fullValue).then((success) => {
@@ -305,6 +580,74 @@ export const RowDetailView: React.FC = () => {
 
 	const labelWidth = computeLabelWidth(state.columns);
 
+	const editLineNumberWidth = Math.max(2, String(editLines.length).length);
+
+	if (editingFieldIndex !== null && editingField) {
+		const visibleLines = editLines.slice(
+			editScrollOffset,
+			editScrollOffset + valueViewerVisibleLineCount,
+		);
+		return (
+			<ViewBuilder
+				title="Edit Field"
+				subtitle={[
+					state.selectedTable ? renderTableName(state.selectedTable) : null,
+					`${editingField.column.name} (${editingField.column.dataType})`,
+					`Field ${editingFieldIndex + 1}/${fields.length || 1}`,
+					`Line ${editCursorLine + 1}`,
+				]
+					.filter(Boolean)
+					.join(" • ")}
+				footer={
+					isSavingEdit
+						? "Saving…"
+						: "Enter New line • Ctrl+S Save • Ctrl+L Clear • Esc Cancel"
+				}
+			>
+				<Box flexDirection="column">
+					{isSavingEdit && <Text color="yellow">Saving changes…</Text>}
+					{visibleLines.map((line, index) => {
+						const absoluteIndex = editScrollOffset + index;
+						const isCursorLine = absoluteIndex === editCursorLine;
+						const segments = getCursorSegments(line, editCursorColumn);
+						return (
+							<Box key={absoluteIndex} flexDirection="row">
+								<Text color="gray" dimColor>
+									{`${String(absoluteIndex + 1).padStart(
+										editLineNumberWidth,
+										" ",
+									)} │ `}
+								</Text>
+								<Text color="white">
+									{isCursorLine ? segments.before : line}
+								</Text>
+								{isCursorLine && (
+									<>
+										<Text inverse>
+											{segments.cursor === "" ? " " : segments.cursor}
+										</Text>
+										<Text color="white">{segments.after}</Text>
+									</>
+								)}
+							</Box>
+						);
+					})}
+					{visibleLines.length === 0 && (
+						<Text color="gray" dimColor>
+							Empty value. Type to insert content.
+						</Text>
+					)}
+				</Box>
+				<Box marginTop={1} flexDirection="column">
+					<Text dimColor>
+						Type NULL (any case) to store a SQL NULL. Changes apply immediately
+						after saving.
+					</Text>
+				</Box>
+			</ViewBuilder>
+		);
+	}
+
 	if (valueViewerOpen && selectedField) {
 		const visibleLines = valueViewerLines.slice(
 			valueViewerScrollOffset,
@@ -326,7 +669,7 @@ export const RowDetailView: React.FC = () => {
 				]
 					.filter(Boolean)
 					.join(" • ")}
-				footer="↑/↓ Scroll • PgUp/PgDn Faster • c Copy • Esc Close"
+				footer="↑/↓ Scroll • PgUp/PgDn Faster • c Copy • e Edit • Esc Close"
 			>
 				<Box flexDirection="column">
 					{visibleLines.map((line, idx) => (
@@ -356,7 +699,7 @@ export const RowDetailView: React.FC = () => {
 		<ViewBuilder
 			title="Row Details"
 			subtitle={subtitleParts.join(" • ")}
-			footer="↑/↓ Navigate • ←/→ Page • v View • c Copy • C Copy row • Esc Back"
+			footer="↑/↓ Navigate • ←/→ Page • v View • e Edit • c Copy • C Copy row • Esc Back"
 		>
 			<Box flexDirection="column">
 				{visibleFields.map(({ column, value }, index) => {
@@ -473,6 +816,80 @@ function formatPreviewValue(value: unknown, width: number): string {
 function formatFullValue(value: unknown): string[] {
 	const full = stringifyValue(value, true);
 	return full.split("\n");
+}
+
+function splitBuffer(buffer: string): string[] {
+	const lines = buffer.split("\n");
+	return lines.length === 0 ? [""] : lines;
+}
+
+function indexToLineColumn(
+	buffer: string,
+	index: number,
+): {
+	line: number;
+	column: number;
+} {
+	const lines = splitBuffer(buffer);
+	let remaining = Math.max(0, Math.min(index, buffer.length));
+	for (let line = 0; line < lines.length; line += 1) {
+		const lineLength = lines[line].length;
+		if (remaining <= lineLength) {
+			return { line, column: remaining };
+		}
+		remaining -= lineLength + 1; // account for newline
+	}
+	const lastLineIndex = Math.max(0, lines.length - 1);
+	return { line: lastLineIndex, column: lines[lastLineIndex]?.length ?? 0 };
+}
+
+function lineColumnToIndex(
+	lines: string[],
+	line: number,
+	column: number,
+): number {
+	if (lines.length === 0) {
+		return 0;
+	}
+	const safeLine = Math.max(0, Math.min(line, lines.length - 1));
+	const lineLength = lines[safeLine]?.length ?? 0;
+	const safeColumn = Math.max(0, Math.min(column, lineLength));
+	let index = 0;
+	for (let i = 0; i < safeLine; i += 1) {
+		index += (lines[i]?.length ?? 0) + 1;
+	}
+	return index + safeColumn;
+}
+
+function clampScrollOffset(
+	currentOffset: number,
+	targetLine: number,
+	visibleLines: number,
+	totalLines: number,
+): number {
+	const maxOffset = Math.max(0, totalLines - visibleLines);
+	let nextOffset = Math.max(0, Math.min(currentOffset, maxOffset));
+	if (targetLine < nextOffset) {
+		nextOffset = targetLine;
+	} else if (targetLine >= nextOffset + visibleLines) {
+		nextOffset = Math.min(targetLine - visibleLines + 1, maxOffset);
+	}
+	return Math.max(0, Math.min(nextOffset, maxOffset));
+}
+
+function getCursorSegments(
+	line: string,
+	column: number,
+): {
+	before: string;
+	cursor: string;
+	after: string;
+} {
+	const safeColumn = Math.max(0, Math.min(column, line.length));
+	const before = line.slice(0, safeColumn);
+	const cursor = line.charAt(safeColumn);
+	const after = safeColumn < line.length ? line.slice(safeColumn + 1) : "";
+	return { before, cursor, after };
 }
 
 function getValueColor(

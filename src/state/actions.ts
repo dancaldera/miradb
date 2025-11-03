@@ -35,6 +35,7 @@ export enum ActionType {
 	SetColumns = "SET_COLUMNS",
 	SetSelectedTable = "SET_SELECTED_TABLE",
 	ClearSelectedTable = "CLEAR_SELECTED_TABLE",
+	UpdateDataRowValue = "UPDATE_DATA_ROW_VALUE",
 	SetDataRows = "SET_DATA_ROWS",
 	SetHasMoreRows = "SET_HAS_MORE_ROWS",
 	SetCurrentOffset = "SET_CURRENT_OFFSET",
@@ -83,6 +84,13 @@ export type AppAction =
 	| { type: ActionType.SetColumns; columns: ColumnInfo[] }
 	| { type: ActionType.SetSelectedTable; table: TableInfo }
 	| { type: ActionType.ClearSelectedTable }
+	| {
+			type: ActionType.UpdateDataRowValue;
+			columnName: string;
+			value: unknown;
+			rowIndex: number | null;
+			table: TableInfo | null;
+	  }
 	| { type: ActionType.SetDataRows; rows: DataRow[] }
 	| { type: ActionType.SetHasMoreRows; hasMore: boolean }
 	| { type: ActionType.SetCurrentOffset; offset: number }

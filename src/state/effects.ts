@@ -415,6 +415,118 @@ export async function fetchTableData(
 	}
 }
 
+export async function updateTableFieldValue(
+	dispatch: AppDispatch,
+	state: AppState,
+	table: TableInfo | null,
+	column: ColumnInfo,
+	rowIndex: number | null,
+	row: DataRow,
+	inputValue: string,
+): Promise<boolean> {
+	if (!table) {
+		dispatch({
+			type: ActionType.SetError,
+			error: "No table selected for editing.",
+		});
+		return false;
+	}
+
+	if (!state.activeConnection || !state.dbType) {
+		dispatch({
+			type: ActionType.SetError,
+			error: "No active database connection.",
+		});
+		return false;
+	}
+
+	const primaryKeys = state.columns.filter((col) => col.isPrimaryKey);
+	if (primaryKeys.length === 0) {
+		dispatch({
+			type: ActionType.SetError,
+			error: "Editing requires a primary key to identify the row.",
+		});
+		return false;
+	}
+
+	const originalValue = row[column.name];
+	const parsedValue = interpretEditedInput(inputValue, column);
+	if (valuesAreEqual(originalValue, parsedValue)) {
+		dispatch({
+			type: ActionType.SetInfo,
+			message: `No changes made to ${column.name}.`,
+		});
+		return false;
+	}
+
+	const config: DatabaseConfig = {
+		type: state.dbType,
+		connectionString: state.activeConnection.connectionString,
+	};
+
+	let connection: DatabaseConnection | null = null;
+
+	try {
+		connection = createDatabaseConnection(config);
+		await connection.connect();
+
+		const tableRef = buildTableReference(state.dbType, table);
+		const columnRef = quoteIdentifier(state.dbType, column.name);
+
+		let paramIndex = 1;
+		const params: unknown[] = [parsedValue];
+		const assignments = `${columnRef} = $${paramIndex++}`;
+		const predicates = primaryKeys.map((pk) => {
+			const pkValue = row[pk.name];
+			if (pkValue === undefined) {
+				throw new Error(
+					`Missing primary key value for column ${pk.name}. Unable to update row.`,
+				);
+			}
+			params.push(pkValue);
+			return `${quoteIdentifier(state.dbType, pk.name)} = $${paramIndex++}`;
+		});
+
+		const updateSql = `UPDATE ${tableRef} SET ${assignments} WHERE ${predicates.join(
+			" AND ",
+		)}`;
+		const { sql, params: finalParams } = parameterize(
+			updateSql,
+			state.dbType,
+			params,
+		);
+
+		await connection.execute(sql, finalParams);
+
+		dispatch({
+			type: ActionType.UpdateDataRowValue,
+			columnName: column.name,
+			value: parsedValue,
+			rowIndex,
+			table,
+		});
+		dispatch({
+			type: ActionType.SetInfo,
+			message: `Updated ${column.name}.`,
+		});
+		return true;
+	} catch (error) {
+		dispatch({
+			type: ActionType.SetError,
+			error: error instanceof Error ? error.message : "Failed to update value.",
+		});
+		return false;
+	} finally {
+		if (connection) {
+			try {
+				await connection.close();
+			} catch {
+				// ignore cleanup errors
+			}
+		}
+	}
+}
+
 export interface SearchTableOptions {
 	term: string;
 	offset?: number;
@@ -1044,6 +1156,31 @@ function selectSearchOrderColumn(
 	const primary = columns.find((column) => column.isPrimaryKey);
 	const chosen = primary ?? columns[0];
 	return quoteIdentifier(dbType, chosen.name);
+}
+
+function interpretEditedInput(value: string, _column: ColumnInfo): unknown {
+	const trimmed = value.trim();
+	if (trimmed.toUpperCase() === "NULL") {
+		return null;
+	}
+	return value;
+}
+
+function valuesAreEqual(a: unknown, b: unknown): boolean {
+	if (a === b) {
+		return true;
+	}
+	if ((a === null || a === undefined) && (b === null || b === undefined)) {
+		return true;
+	}
+	if (typeof a === "object" || typeof b === "object") {
+		try {
+			return JSON.stringify(a) === JSON.stringify(b);
+		} catch {
+			return false;
+		}
+	}
+	return false;
 }
 
 function buildSearchQueries(
