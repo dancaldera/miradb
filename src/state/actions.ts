@@ -52,6 +52,7 @@ export enum ActionType {
 	SetSortConfig = "SET_SORT_CONFIG",
 	SetFilterValue = "SET_FILTER_VALUE",
 	ExportData = "EXPORT_DATA",
+	SetShowCommandHints = "SET_SHOW_COMMAND_HINTS",
 	SetSearchTerm = "SET_SEARCH_TERM",
 	SetSearchResultsPage = "SET_SEARCH_RESULTS_PAGE",
 	SetSearchSelectedIndex = "SET_SEARCH_SELECTED_INDEX",
@@ -103,6 +104,7 @@ export type AppAction =
 			format: "csv" | "json";
 			includeHeaders: boolean;
 	  }
+	| { type: ActionType.SetShowCommandHints; show: boolean }
 	| { type: ActionType.SetSearchTerm; term: string }
 	| {
 			type: ActionType.SetSearchResultsPage;

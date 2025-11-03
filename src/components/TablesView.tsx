@@ -1,6 +1,6 @@
 import { Box, Text, useInput } from "ink";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActionType } from "../state/actions.js";
 import { useAppDispatch, useAppState } from "../state/context.js";
 import { fetchColumns, fetchTables } from "../state/effects.js";
@@ -23,6 +23,26 @@ export const TablesView: React.FC = () => {
 	const dispatch = useAppDispatch();
 	const state = useAppState();
 	const [selectedIndex, setSelectedIndex] = useState(0);
+	const hasRequestedTablesRef = useRef(false);
+	const previousConnectionIdRef = useRef<string | null>(null);
+
+	const loadTables = useCallback(
+		(force = false) => {
+			if (!state.activeConnection || !state.dbType) {
+				return;
+			}
+			if (!force && hasRequestedTablesRef.current) {
+				return;
+			}
+
+			hasRequestedTablesRef.current = true;
+			void fetchTables(dispatch, {
+				type: state.dbType,
+				connectionString: state.activeConnection.connectionString,
+			});
+		},
+		[dispatch, state.activeConnection, state.dbType],
+	);
 
 	useInput((input, key) => {
 		// Shortcuts
@@ -55,8 +75,23 @@ export const TablesView: React.FC = () => {
 		if (key.escape) {
 			dispatch({ type: ActionType.ClearActiveConnection });
 			dispatch({ type: ActionType.SetView, view: ViewState.Connection });
+			return;
+		}
+
+		// Refresh table list
+		if ((input === "r" || input === "R") && !state.loading) {
+			hasRequestedTablesRef.current = false;
+			loadTables(true);
 		}
 	});
+
+	useEffect(() => {
+		const connectionId = state.activeConnection?.id ?? null;
+		if (connectionId !== previousConnectionIdRef.current) {
+			previousConnectionIdRef.current = connectionId;
+			hasRequestedTablesRef.current = false;
+		}
+	}, [state.activeConnection?.id]);
 
 	useEffect(() => {
 		if (!state.activeConnection || !state.dbType) {
@@ -65,10 +100,7 @@ export const TablesView: React.FC = () => {
 		}
 
 		if (state.tables.length === 0 && !state.loading) {
-			void fetchTables(dispatch, {
-				type: state.dbType,
-				connectionString: state.activeConnection.connectionString,
-			});
+			loadTables();
 		}
 	}, [
 		dispatch,
@@ -76,6 +108,7 @@ export const TablesView: React.FC = () => {
 		state.dbType,
 		state.tables.length,
 		state.loading,
+		loadTables,
 	]);
 
 	// Reset selection when tables change
@@ -130,7 +163,8 @@ export const TablesView: React.FC = () => {
 			<Box flexDirection="column">
 				<Text>No tables found.</Text>
 				<Text dimColor>
-					Check permissions or schema filters once implemented.
+					Database appears empty; press R to try loading again or verify
+					permissions/schema filters.
 				</Text>
 			</Box>
 		);
@@ -186,8 +220,8 @@ export const TablesView: React.FC = () => {
 			</Box>
 			<Box marginTop={1}>
 				<Text dimColor>
-					Enter: Open column details | q: SQL Query | h: Query History | Esc:
-					Disconnect
+					Enter: Open column details | r: Refresh tables | q: SQL Query | h:
+					Query History | Esc: Disconnect
 				</Text>
 			</Box>
 		</Box>

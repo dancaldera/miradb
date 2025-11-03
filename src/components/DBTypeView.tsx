@@ -37,10 +37,12 @@ export const DBTypeView: React.FC = () => {
 			type: ActionType.AddViewHistoryEntry,
 			entry: historyHelpers.dbTypeSelected(item.value),
 		});
-		// Add breadcrumb
+		// Reset breadcrumbs to selected database type
 		dispatch({
-			type: ActionType.AddBreadcrumb,
-			breadcrumb: { label: item.value.toUpperCase(), view: ViewState.DBType },
+			type: ActionType.SetBreadcrumbs,
+			breadcrumbs: [
+				{ label: item.value.toUpperCase(), view: ViewState.DBType },
+			],
 		});
 		// Navigate to connection view
 		dispatch({ type: ActionType.SelectDBType, dbType: item.value });

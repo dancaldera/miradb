@@ -10,6 +10,7 @@ import type {
 } from "../database/types.js";
 import type {
 	AppState,
+	BreadcrumbSegment,
 	ColumnInfo,
 	ConnectionInfo,
 	DataRow,
@@ -122,14 +123,23 @@ export async function connectToDatabase(
 				connectionInfo.type,
 			),
 		});
-		// Add breadcrumb for database
-		dispatch({
-			type: ActionType.AddBreadcrumb,
-			breadcrumb: {
-				label: connectionInfo.name,
-				view: ViewState.Connection,
-			},
+
+		const breadcrumbs: BreadcrumbSegment[] = [];
+		if (config.type) {
+			breadcrumbs.push({
+				label: config.type.toUpperCase(),
+				view: ViewState.DBType,
+			});
+		}
+		breadcrumbs.push({
+			label: connectionInfo.name,
+			view: ViewState.Connection,
 		});
+		breadcrumbs.push({
+			label: "Tables",
+			view: ViewState.Tables,
+		});
+		dispatch({ type: ActionType.SetBreadcrumbs, breadcrumbs });
 
 		dispatch({ type: ActionType.SetView, view: ViewState.Tables });
 
@@ -159,14 +169,6 @@ export async function connectToDatabase(
 			dispatch({
 				type: ActionType.AddViewHistoryEntry,
 				entry: historyHelpers.tablesLoaded(tables.length),
-			});
-			// Add breadcrumb for tables view
-			dispatch({
-				type: ActionType.AddBreadcrumb,
-				breadcrumb: {
-					label: "Tables",
-					view: ViewState.Tables,
-				},
 			});
 		}
 	} catch (error) {

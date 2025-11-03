@@ -12,6 +12,7 @@ export class MySQLConnection implements DatabaseConnection {
 	public readonly type = DBType.MySQL;
 	private pool: Pool;
 	private connected = false;
+	private readonly closeTimeoutMillis: number;
 
 	constructor(private readonly config: DatabaseConfig) {
 		this.pool = mysql.createPool({
@@ -20,6 +21,7 @@ export class MySQLConnection implements DatabaseConnection {
 			connectionLimit: config.pool?.max ?? 10,
 			queueLimit: 0,
 		});
+		this.closeTimeoutMillis = config.pool?.closeTimeoutMillis ?? 5_000;
 	}
 
 	async connect(): Promise<void> {
@@ -68,7 +70,41 @@ export class MySQLConnection implements DatabaseConnection {
 	}
 
 	async close(): Promise<void> {
-		await this.pool.end();
-		this.connected = false;
+		const closePromise = this.pool.end();
+		let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+		let timedOut = false;
+
+		const timeoutPromise = new Promise<never>((_, reject) => {
+			timeoutHandle = setTimeout(() => {
+				timedOut = true;
+				reject(new Error("MySQL pool close timed out."));
+			}, this.closeTimeoutMillis);
+		});
+
+		try {
+			await Promise.race([closePromise, timeoutPromise]);
+		} catch (error) {
+			if (timedOut) {
+				console.warn(
+					"MySQL pool close timed out; continuing shutdown asynchronously.",
+				);
+				closePromise
+					.catch((closeError) => {
+						console.warn("MySQL pool close eventually failed:", closeError);
+					})
+					.finally(() => {
+						if (timeoutHandle) {
+							clearTimeout(timeoutHandle);
+						}
+					});
+			} else {
+				console.warn("Failed to close MySQL pool cleanly:", error);
+			}
+		} finally {
+			if (timeoutHandle) {
+				clearTimeout(timeoutHandle);
+			}
+			this.connected = false;
+		}
 	}
 }

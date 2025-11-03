@@ -15,6 +15,7 @@ export interface PoolConfig {
 	max?: number;
 	idleTimeoutMillis?: number;
 	connectionTimeoutMillis?: number;
+	closeTimeoutMillis?: number;
 }
 
 export interface QueryRow {

@@ -11,6 +11,7 @@ export enum ViewState {
 	Relationships = "RELATIONSHIPS",
 	Indexes = "INDEXES",
 	Search = "SEARCH",
+	Context = "CONTEXT",
 	Help = "HELP",
 }
 
@@ -124,6 +125,7 @@ export interface AppState {
 	loading: boolean;
 	errorMessage: string | null;
 	infoMessage: string | null;
+	showCommandHints: boolean;
 	sortConfig: SortConfig;
 	filterValue: string;
 	searchTerm: string;
@@ -158,6 +160,7 @@ export const initialAppState: AppState = {
 	loading: false,
 	errorMessage: null,
 	infoMessage: null,
+	showCommandHints: false,
 	sortConfig: { column: null, direction: "off" },
 	filterValue: "",
 	searchTerm: "",

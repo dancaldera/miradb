@@ -11,6 +11,7 @@ export class PostgresConnection implements DatabaseConnection {
 	public readonly type = DBType.PostgreSQL;
 	private pool: Pool;
 	private connected = false;
+	private readonly closeTimeoutMillis: number;
 
 	constructor(private readonly config: DatabaseConfig) {
 		this.pool = new Pool({
@@ -19,6 +20,7 @@ export class PostgresConnection implements DatabaseConnection {
 			idleTimeoutMillis: config.pool?.idleTimeoutMillis ?? 30_000,
 			connectionTimeoutMillis: config.pool?.connectionTimeoutMillis ?? 10_000,
 		});
+		this.closeTimeoutMillis = config.pool?.closeTimeoutMillis ?? 5_000;
 	}
 
 	async connect(): Promise<void> {
@@ -63,7 +65,44 @@ export class PostgresConnection implements DatabaseConnection {
 	}
 
 	async close(): Promise<void> {
-		await this.pool.end();
-		this.connected = false;
+		const closePromise = this.pool.end();
+		let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+		let timedOut = false;
+
+		const timeoutPromise = new Promise<never>((_, reject) => {
+			timeoutHandle = setTimeout(() => {
+				timedOut = true;
+				reject(new Error("PostgreSQL pool close timed out."));
+			}, this.closeTimeoutMillis);
+		});
+
+		try {
+			await Promise.race([closePromise, timeoutPromise]);
+		} catch (error) {
+			if (timedOut) {
+				console.warn(
+					"PostgreSQL pool close timed out; continuing shutdown asynchronously.",
+				);
+				closePromise
+					.catch((closeError) => {
+						console.warn(
+							"PostgreSQL pool close eventually failed:",
+							closeError,
+						);
+					})
+					.finally(() => {
+						if (timeoutHandle) {
+							clearTimeout(timeoutHandle);
+						}
+					});
+			} else {
+				console.warn("Failed to close PostgreSQL pool cleanly:", error);
+			}
+		} finally {
+			if (timeoutHandle) {
+				clearTimeout(timeoutHandle);
+			}
+			this.connected = false;
+		}
 	}
 }

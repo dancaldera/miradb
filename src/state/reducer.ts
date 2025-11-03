@@ -61,6 +61,10 @@ export function appReducer(
 				draft.infoMessage = null;
 				break;
 
+			case ActionType.SetShowCommandHints:
+				draft.showCommandHints = action.show;
+				break;
+
 			case ActionType.SetActiveConnection:
 				draft.activeConnection = action.connection;
 				break;

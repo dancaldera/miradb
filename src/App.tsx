@@ -4,7 +4,7 @@ import type React from "react";
 import { useCallback, useEffect, useRef } from "react";
 import { ColumnsView } from "./components/ColumnsView.js";
 import { ConnectionView } from "./components/ConnectionView.js";
-import { ContextHeader } from "./components/ContextHeader.js";
+import { ContextOverviewView } from "./components/ContextOverviewView.js";
 import { DataPreviewView } from "./components/DataPreviewView.js";
 import { DBTypeView } from "./components/DBTypeView.js";
 import { IndexesView } from "./components/IndexesView.js";
@@ -13,7 +13,6 @@ import { QueryView } from "./components/QueryView.js";
 import { RelationshipsView } from "./components/RelationshipsView.js";
 import { RowDetailView } from "./components/RowDetailView.js";
 import { SavedConnectionsView } from "./components/SavedConnectionsView.js";
-import { ScrollableHistory } from "./components/ScrollableHistory.js";
 import { SearchView } from "./components/SearchView.js";
 import { TablesView } from "./components/TablesView.js";
 import { ActionType } from "./state/actions.js";
@@ -26,12 +25,14 @@ const AppContent: React.FC = () => {
 	const state = useAppState();
 	const dispatch = useAppDispatch();
 	const scheduledNotifications = useRef(new Set<string>());
+	const previousViewRef = useRef<ViewState | null>(null);
 
 	useEffect(() => {
 		void initializeApp(dispatch);
 	}, [dispatch]);
 
 	const handleGoHome = useCallback(() => {
+		previousViewRef.current = null;
 		dispatch({ type: ActionType.ClearActiveConnection });
 		dispatch({ type: ActionType.SetView, view: ViewState.DBType });
 	}, [dispatch]);
@@ -43,11 +44,38 @@ const AppContent: React.FC = () => {
 				(!key.ctrl && key.meta && input.toLowerCase() === "s")) &&
 			state.currentView !== ViewState.SavedConnections
 		) {
+			previousViewRef.current = null;
 			dispatch({ type: ActionType.SetView, view: ViewState.SavedConnections });
 			return;
 		}
 
+		if (key.ctrl && input.toLowerCase() === "i") {
+			if (state.currentView === ViewState.Context) {
+				const target = previousViewRef.current ?? ViewState.DBType;
+				previousViewRef.current = null;
+				dispatch({ type: ActionType.SetView, view: target });
+			} else {
+				previousViewRef.current = state.currentView;
+				dispatch({ type: ActionType.SetView, view: ViewState.Context });
+			}
+			return;
+		}
+
+		if (key.ctrl && input.toLowerCase() === "k") {
+			dispatch({
+				type: ActionType.SetShowCommandHints,
+				show: !state.showCommandHints,
+			});
+			return;
+		}
+
 		if (key.escape) {
+			if (state.currentView === ViewState.Context) {
+				const target = previousViewRef.current ?? ViewState.DBType;
+				previousViewRef.current = null;
+				dispatch({ type: ActionType.SetView, view: target });
+				return;
+			}
 			// Only go home from root level views, not from sub-navigation
 			if (
 				state.currentView === ViewState.Tables ||
@@ -70,6 +98,15 @@ const AppContent: React.FC = () => {
 			dispatch({ type: ActionType.SetView, view: ViewState.Help });
 		}
 	});
+
+	useEffect(() => {
+		if (state.currentView !== ViewState.Context) {
+			return;
+		}
+		return () => {
+			previousViewRef.current = null;
+		};
+	}, [state.currentView]);
 
 	useEffect(() => {
 		const timers: Array<{ id: string; timer: ReturnType<typeof setTimeout> }> =
@@ -121,6 +158,8 @@ const AppContent: React.FC = () => {
 				return <RelationshipsView />;
 			case ViewState.Indexes:
 				return <IndexesView />;
+			case ViewState.Context:
+				return <ContextOverviewView />;
 			case ViewState.Help:
 				return (
 					<Box flexDirection="column">
@@ -151,14 +190,12 @@ const AppContent: React.FC = () => {
 			<Text color="cyan" bold>
 				Mirador v{APP_VERSION}
 			</Text>
-
-			{/* Context Header - shows connection, breadcrumbs, recent actions */}
-			<ContextHeader
-				activeConnection={state.activeConnection}
-				dbType={state.dbType}
-				breadcrumbs={state.breadcrumbs}
-				recentCommands={recentCommands}
-			/>
+			{state.showCommandHints && (
+				<Text color="gray" dimColor>
+					Ctrl+I: Context overview • Ctrl+S: Saved connections • Ctrl+K: Toggle
+					commands
+				</Text>
+			)}
 
 			{state.loading && (
 				<Box marginTop={1}>
@@ -189,9 +226,6 @@ const AppContent: React.FC = () => {
 						{note.message}
 					</Text>
 				))}
-
-				{/* Scrollable History - shows all previous interactions */}
-				<ScrollableHistory entries={state.viewHistory} />
 
 				{/* Current Interactive View */}
 				<Box marginTop={1}>{renderView()}</Box>
