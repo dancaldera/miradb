@@ -50,6 +50,8 @@ export enum ActionType {
 	RemoveNotification = "REMOVE_NOTIFICATION",
 	SetQueryHistory = "SET_QUERY_HISTORY",
 	AddQueryHistoryItem = "ADD_QUERY_HISTORY_ITEM",
+	SetPendingQueryText = "SET_PENDING_QUERY_TEXT",
+	ClearPendingQueryText = "CLEAR_PENDING_QUERY_TEXT",
 	SetSortConfig = "SET_SORT_CONFIG",
 	SetFilterValue = "SET_FILTER_VALUE",
 	ExportData = "EXPORT_DATA",
@@ -105,6 +107,8 @@ export type AppAction =
 	| { type: ActionType.RemoveNotification; id: string }
 	| { type: ActionType.SetQueryHistory; history: QueryHistoryItem[] }
 	| { type: ActionType.AddQueryHistoryItem; item: QueryHistoryItem }
+	| { type: ActionType.SetPendingQueryText; query: string }
+	| { type: ActionType.ClearPendingQueryText }
 	| { type: ActionType.SetSortConfig; sortConfig: SortConfig }
 	| { type: ActionType.SetFilterValue; filterValue: string }
 	| {

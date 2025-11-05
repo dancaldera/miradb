@@ -321,6 +321,14 @@ export function appReducer(
 				draft.queryHistory.unshift(action.item);
 				break;
 
+			case ActionType.SetPendingQueryText:
+				draft.pendingQueryText = action.query;
+				break;
+
+			case ActionType.ClearPendingQueryText:
+				draft.pendingQueryText = null;
+				break;
+
 			case ActionType.SetSortConfig:
 				draft.sortConfig = action.sortConfig;
 				break;

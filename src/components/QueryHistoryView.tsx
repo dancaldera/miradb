@@ -78,12 +78,39 @@ export const QueryHistoryView: React.FC = () => {
 
 		if (input === "r" && selectedQuery) {
 			// Re-run the selected query
+			dispatch({
+				type: ActionType.SetPendingQueryText,
+				query: selectedQuery.query,
+			});
 			dispatch({ type: ActionType.SetView, view: ViewState.Query });
-			// TODO: Set the query text in the QueryView state
 		}
 		if (input === "c" && selectedQuery) {
 			// Copy query to clipboard
-			// TODO: Implement clipboard functionality
+			void (async () => {
+				const { copyToClipboard } = await import("../utils/clipboard.js");
+				const success = await copyToClipboard(selectedQuery.query);
+				if (success) {
+					dispatch({
+						type: ActionType.AddNotification,
+						notification: {
+							id: `copy-${Date.now()}`,
+							message: "Query copied to clipboard",
+							level: "info",
+							createdAt: Date.now(),
+						},
+					});
+				} else {
+					dispatch({
+						type: ActionType.AddNotification,
+						notification: {
+							id: `copy-error-${Date.now()}`,
+							message: "Failed to copy query to clipboard",
+							level: "error",
+							createdAt: Date.now(),
+						},
+					});
+				}
+			})();
 		}
 	});
 

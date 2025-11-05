@@ -15,6 +15,14 @@ export const QueryView: React.FC = () => {
 	const [isExecuting, setIsExecuting] = useState(false);
 	const [showCommands, setShowCommands] = useState(false);
 
+	// Load pending query text when component mounts
+	useEffect(() => {
+		if (state.pendingQueryText) {
+			setQueryText(state.pendingQueryText);
+			dispatch({ type: ActionType.ClearPendingQueryText });
+		}
+	}, [state.pendingQueryText, dispatch]);
+
 	useInput((input, key) => {
 		if (key.escape) {
 			if (showCommands) {

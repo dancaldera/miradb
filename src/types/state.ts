@@ -121,6 +121,7 @@ export interface AppState {
 	refreshTimestamps: Record<string, number>;
 	notifications: Notification[];
 	queryHistory: QueryHistoryItem[];
+	pendingQueryText: string | null;
 	loading: boolean;
 	errorMessage: string | null;
 	infoMessage: string | null;
@@ -156,6 +157,7 @@ export const initialAppState: AppState = {
 	refreshTimestamps: {},
 	notifications: [],
 	queryHistory: [],
+	pendingQueryText: null,
 	loading: false,
 	errorMessage: null,
 	infoMessage: null,
