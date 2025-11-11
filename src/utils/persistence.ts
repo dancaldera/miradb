@@ -11,6 +11,7 @@ import type {
 	TableCacheEntry,
 } from "../types/state.js";
 import { DBType } from "../types/state.js";
+import { DebouncedWriter } from "./debounced-writer.js";
 
 let dataDir =
 	process.env.MIRADOR_DATA_DIR ?? path.join(os.homedir(), ".mirador");
@@ -22,6 +23,48 @@ function resolveDataPath(filename: string): string {
 export function setPersistenceDataDirectory(dir: string): void {
 	dataDir = dir;
 }
+
+// Debounced writers for cache operations (500ms delay, batched writes)
+const tableCacheWriter = new DebouncedWriter<
+	Record<string, Record<string, TableCacheEntry>>
+>(async (data) => {
+	await writeFile(
+		resolveDataPath("table-cache.json"),
+		JSON.stringify(data, null, 2),
+		"utf-8",
+	);
+}, 500);
+
+const connectionsWriter = new DebouncedWriter<ConnectionInfo[]>(
+	async (data) => {
+		await writeFile(
+			resolveDataPath("connections.json"),
+			JSON.stringify(data, null, 2),
+			"utf-8",
+		);
+	},
+	500,
+);
+
+const queryHistoryWriter = new DebouncedWriter<QueryHistoryItem[]>(
+	async (data) => {
+		await writeFile(
+			resolveDataPath("query-history.json"),
+			JSON.stringify(data, null, 2),
+			"utf-8",
+		);
+	},
+	500,
+);
+
+// Flush all pending writes on process exit
+process.on("beforeExit", () => {
+	void Promise.all([
+		tableCacheWriter.flush(),
+		connectionsWriter.flush(),
+		queryHistoryWriter.flush(),
+	]);
+});
 
 const connectionSchema: z.ZodType<ConnectionInfo> = z.object({
 	id: z.string(),
@@ -160,8 +203,8 @@ export async function saveConnections(
 	connections: ConnectionInfo[],
 ): Promise<void> {
 	await ensureDataDirectory();
-	const data = JSON.stringify(connections, null, 2);
-	await writeFile(resolveDataPath("connections.json"), data, "utf-8");
+	// Use debounced writer to batch connection saves
+	connectionsWriter.write(connections);
 }
 
 export async function loadQueryHistory(): Promise<QueryHistoryItem[]> {
@@ -183,8 +226,8 @@ export async function saveQueryHistory(
 	history: QueryHistoryItem[],
 ): Promise<void> {
 	await ensureDataDirectory();
-	const data = JSON.stringify(history, null, 2);
-	await writeFile(resolveDataPath("query-history.json"), data, "utf-8");
+	// Use debounced writer to batch query history saves
+	queryHistoryWriter.write(history);
 }
 
 async function readTableCacheFile(): Promise<
@@ -256,11 +299,8 @@ export async function saveTableCache(
 ): Promise<void> {
 	const file = await readTableCacheFile();
 	file[connectionId] = cache;
-	await writeFile(
-		resolveDataPath("table-cache.json"),
-		JSON.stringify(file, null, 2),
-		"utf-8",
-	);
+	// Use debounced writer to batch multiple cache updates
+	tableCacheWriter.write(file);
 }
 
 function safeParse<T>(schema: z.ZodType<T>, data: unknown): T | null {

@@ -1,6 +1,6 @@
 {
 	"name": "mirador",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Terminal-based database explorer rewritten in Node.js/TypeScript",
 	"type": "module",
 	"main": "dist/index.js",

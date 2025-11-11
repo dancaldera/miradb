@@ -109,18 +109,6 @@ export async function connectToDatabase(
 			connection: connectionInfo,
 		});
 		const cachedTables = await loadTableCache(connectionInfo.id);
-		console.log(
-			"[Effects] Loaded table cache for connection:",
-			connectionInfo.id,
-			{
-				cacheKeys: Object.keys(cachedTables),
-				cacheEntries: Object.entries(cachedTables).map(([key, entry]) => ({
-					key,
-					rowCount: entry.rows.length,
-					columnCount: entry.columns.length,
-				})),
-			},
-		);
 		dispatch({ type: ActionType.SetTableCache, cache: cachedTables });
 		dispatch({
 			type: ActionType.SetInfo,
@@ -368,14 +356,7 @@ export async function fetchTableData(
 	table: TableInfo,
 	options: FetchTableDataOptions = {},
 ): Promise<void> {
-	console.log("[fetchTableData] Starting fetch:", {
-		dbType: dbConfig.type,
-		table: `${table.schema || "public"}.${table.name}`,
-		options,
-	});
-
 	if (!shouldProceedWithRefresh(dispatch, state, table)) {
-		console.log("[fetchTableData] Refresh throttled or blocked");
 		return;
 	}
 	dispatch({ type: ActionType.StartLoading });
@@ -387,21 +368,11 @@ export async function fetchTableData(
 	const limit = Math.max(options.limit ?? DEFAULT_PAGE_SIZE, 1);
 
 	try {
-		console.log("[fetchTableData] Creating database connection...");
 		connection = createDatabaseConnection(dbConfig);
 		await connection.connect();
-		console.log("[fetchTableData] Connected successfully");
 
 		const query = buildTableDataQuery(dbConfig.type, table, limit, offset);
-		console.log("[fetchTableData] Executing query:", query);
-
 		const result = await connection.query(query);
-		console.log("[fetchTableData] Query result:", {
-			rowCount: result.rows.length,
-			rowCountFromDB: result.rowCount,
-			fields: result.fields,
-			sampleRow: result.rows[0] ? Object.keys(result.rows[0]) : [],
-		});
 
 		dispatch({ type: ActionType.SetDataRows, rows: result.rows });
 		dispatch({
@@ -424,16 +395,9 @@ export async function fetchTableData(
 					},
 				};
 				await saveTableCache(connectionId, updatedCache);
-				console.log("[fetchTableData] Cache updated for key:", cacheKey);
 			}
 		}
 	} catch (error) {
-		console.error("[fetchTableData] Error occurred:", error);
-		console.error("[fetchTableData] Error details:", {
-			message: error instanceof Error ? error.message : String(error),
-			stack: error instanceof Error ? error.stack : undefined,
-			errorType: error?.constructor?.name,
-		});
 		dispatch({
 			type: ActionType.SetError,
 			error: error instanceof Error ? error.message : "Failed to fetch rows.",
@@ -442,7 +406,6 @@ export async function fetchTableData(
 		if (connection) {
 			try {
 				await connection.close();
-				console.log("[fetchTableData] Connection closed");
 			} catch {
 				// ignore close errors
 			}
@@ -496,6 +459,14 @@ export async function updateTableFieldValue(
 		return false;
 	}
 
+	if (!state.dbType) {
+		dispatch({
+			type: ActionType.SetError,
+			error: "Database type not set.",
+		});
+		return false;
+	}
+
 	const config: DatabaseConfig = {
 		type: state.dbType,
 		connectionString: state.activeConnection.connectionString,
@@ -507,8 +478,9 @@ export async function updateTableFieldValue(
 		connection = createDatabaseConnection(config);
 		await connection.connect();
 
-		const tableRef = buildTableReference(state.dbType, table);
-		const columnRef = quoteIdentifier(state.dbType, column.name);
+		const dbType = state.dbType; // Capture for use in closures
+		const tableRef = buildTableReference(dbType, table);
+		const columnRef = quoteIdentifier(dbType, column.name);
 
 		let paramIndex = 1;
 		const params: unknown[] = [parsedValue];
@@ -521,7 +493,7 @@ export async function updateTableFieldValue(
 				);
 			}
 			params.push(pkValue);
-			return `${quoteIdentifier(state.dbType, pk.name)} = $${paramIndex++}`;
+			return `${quoteIdentifier(dbType, pk.name)} = $${paramIndex++}`;
 		});
 
 		const updateSql = `UPDATE ${tableRef} SET ${assignments} WHERE ${predicates.join(

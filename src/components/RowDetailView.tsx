@@ -1,6 +1,5 @@
 import { Box, Text, useInput, useStdout } from "ink";
-import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ActionType } from "../state/actions.js";
 import { useAppDispatch, useAppState } from "../state/context.js";
 import { updateTableFieldValue } from "../state/effects.js";
@@ -19,7 +18,7 @@ const MIN_PREVIEW_WIDTH = 24;
 const PREVIEW_WIDTH_OFFSET = 32;
 const PAGINATION_WINDOW = 7;
 
-export const RowDetailView: React.FC = () => {
+const RowDetailViewComponent: React.FC = () => {
 	const dispatch = useAppDispatch();
 	const state = useAppState();
 	const { stdout } = useStdout();
@@ -1025,3 +1024,5 @@ function getPaginationWindow(
 	}
 	return pages;
 }
+
+export const RowDetailView = React.memo(RowDetailViewComponent);

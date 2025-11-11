@@ -40,43 +40,18 @@ export class PostgresConnection implements DatabaseConnection {
 		sql: string,
 		params: unknown[] = [],
 	): Promise<QueryResult<T>> {
-		console.log("[PostgresConnection] Query called:", {
-			sql,
-			params,
-			connected: this.connected,
-		});
-
 		if (!this.connected) {
 			await this.connect();
 		}
 
 		try {
 			const result = await this.pool.query(sql, params);
-			console.log("[PostgresConnection] Query executed successfully:", {
-				rowCount: result.rowCount,
-				rowsLength: result.rows.length,
-				fields: result.fields?.map((field) => field.name),
-				command: result.command,
-			});
 			return {
 				rows: result.rows as T[],
 				rowCount: result.rowCount ?? result.rows.length,
 				fields: result.fields?.map((field) => field.name),
 			};
 		} catch (error) {
-			console.error("[PostgresConnection] Query failed:", {
-				sql,
-				params,
-				error: error instanceof Error ? error.message : String(error),
-				code:
-					error instanceof Error
-						? (error as { code?: string }).code
-						: undefined,
-				detail:
-					error instanceof Error
-						? (error as { detail?: string }).detail
-						: undefined,
-			});
 			throw new DatabaseError(
 				"PostgreSQL query failed.",
 				error instanceof Error ? (error as { code?: string }).code : undefined,
