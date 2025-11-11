@@ -126,6 +126,8 @@ export interface AppState {
 	infoMessage: string | null;
 	showCommandHints: boolean;
 	sortConfig: SortConfig;
+	sortPickerMode: boolean;
+	sortPickerColumnIndex: number;
 	filterValue: string;
 	searchTerm: string;
 	searchResults: DataRow[];
@@ -161,6 +163,8 @@ export const initialAppState: AppState = {
 	infoMessage: null,
 	showCommandHints: false,
 	sortConfig: { column: null, direction: "off" },
+	sortPickerMode: false,
+	sortPickerColumnIndex: 0,
 	filterValue: "",
 	searchTerm: "",
 	searchResults: [],

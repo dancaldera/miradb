@@ -346,7 +346,7 @@ export interface FetchTableDataOptions {
 	limit?: number;
 }
 
-const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 20;
 const DEFAULT_SEARCH_PAGE_SIZE = 25;
 
 export async function fetchTableData(
@@ -371,7 +371,13 @@ export async function fetchTableData(
 		connection = createDatabaseConnection(dbConfig);
 		await connection.connect();
 
-		const query = buildTableDataQuery(dbConfig.type, table, limit, offset);
+		const query = buildTableDataQuery(
+			dbConfig.type,
+			table,
+			limit,
+			offset,
+			state.sortConfig,
+		);
 		const result = await connection.query(query);
 
 		dispatch({ type: ActionType.SetDataRows, rows: result.rows });
@@ -381,8 +387,14 @@ export async function fetchTableData(
 		});
 		dispatch({ type: ActionType.SetCurrentOffset, offset });
 
+		// Only update cache for unsorted data to prevent cache corruption
+		// When sorting is active, we don't cache the results since the cache key
+		// doesn't include sort configuration
+		const isSortActive =
+			state.sortConfig.column !== null && state.sortConfig.direction !== "off";
+
 		const connectionId = state.activeConnection?.id;
-		if (connectionId) {
+		if (connectionId && !isSortActive) {
 			const cacheKey = tableCacheKey(table);
 			if (cacheKey) {
 				const updatedCache = {
@@ -1089,16 +1101,26 @@ function buildTableDataQuery(
 	table: TableInfo,
 	limit: number,
 	offset: number,
+	sortConfig?: { column: string | null; direction: "asc" | "desc" | "off" },
 ): string {
 	const tableRef = buildTableReference(dbType, table);
+
+	// Build ORDER BY clause if sorting is active
+	let orderByClause = "";
+	if (sortConfig && sortConfig.column && sortConfig.direction !== "off") {
+		const sortColumn = quoteIdentifier(dbType, sortConfig.column);
+		const sortDirection = sortConfig.direction === "asc" ? "ASC" : "DESC";
+		orderByClause = ` ORDER BY ${sortColumn} ${sortDirection}`;
+	}
+
 	switch (dbType) {
 		case DBType.SQLite:
-			return `SELECT * FROM ${tableRef} LIMIT ${limit} OFFSET ${offset}`;
+			return `SELECT * FROM ${tableRef}${orderByClause} LIMIT ${limit} OFFSET ${offset}`;
 		case DBType.MySQL:
-			return `SELECT * FROM ${tableRef} LIMIT ${offset}, ${limit}`;
+			return `SELECT * FROM ${tableRef}${orderByClause} LIMIT ${offset}, ${limit}`;
 		case DBType.PostgreSQL:
 		default:
-			return `SELECT * FROM ${tableRef} LIMIT ${limit} OFFSET ${offset}`;
+			return `SELECT * FROM ${tableRef}${orderByClause} LIMIT ${limit} OFFSET ${offset}`;
 	}
 }
 

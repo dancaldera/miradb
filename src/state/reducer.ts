@@ -325,6 +325,19 @@ export function appReducer(
 				draft.sortConfig = action.sortConfig;
 				break;
 
+			case ActionType.EnterSortPickerMode:
+				draft.sortPickerMode = true;
+				draft.sortPickerColumnIndex = 0;
+				break;
+
+			case ActionType.ExitSortPickerMode:
+				draft.sortPickerMode = false;
+				break;
+
+			case ActionType.SetSortPickerColumn:
+				draft.sortPickerColumnIndex = action.columnIndex;
+				break;
+
 			case ActionType.SetFilterValue:
 				draft.filterValue = action.filterValue;
 				break;

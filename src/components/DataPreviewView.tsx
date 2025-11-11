@@ -30,7 +30,7 @@ import {
 import { processRows } from "../utils/data-processing.js";
 import { getFixedPKColumns, getNavigableColumns } from "../utils/pk-utils.js";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
 const FALLBACK_TOTAL_VISIBLE_COLUMNS = 5;
 const TABLE_MARGIN = 4;
 const BORDER_WIDTH = 2;
@@ -69,14 +69,18 @@ const DataPreviewViewComponent: React.FC = () => {
 
 	// ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL LOGIC
 	// Data processing hooks
+	// NOTE: Sorting is done at the database level, so we only apply client-side filtering here
 	const processedRows = useMemo(() => {
-		return processRows(
-			state.dataRows,
-			state.sortConfig,
-			state.filterValue,
-			state.columns,
-		);
-	}, [state.dataRows, state.sortConfig, state.filterValue, state.columns]);
+		// Only apply filtering, NOT sorting (sorting is done by the database)
+		return state.filterValue
+			? processRows(
+					state.dataRows,
+					{ column: null, direction: "off" }, // Disable client-side sorting
+					state.filterValue,
+					state.columns,
+				)
+			: state.dataRows;
+	}, [state.dataRows, state.filterValue, state.columns]);
 
 	const rowsToDisplay = processedRows;
 	const cacheKey = tableCacheKey(table);
@@ -269,6 +273,48 @@ const DataPreviewViewComponent: React.FC = () => {
 		table,
 	]);
 
+	// Helper function to auto-scroll to make a column visible in sort picker mode
+	const autoScrollToColumn = (columnIndex: number): void => {
+		// Get the selected column from all columns
+		const selectedColumn = state.columns[columnIndex];
+		if (!selectedColumn) return;
+
+		// Check if it's a fixed PK column (always visible, no scrolling needed)
+		const isFixedPK = fixedPKColumns.some(
+			(col) => col.name === selectedColumn.name,
+		);
+		if (isFixedPK) return;
+
+		// Find the index in navigable columns
+		const navigableIndex = navigableColumns.findIndex(
+			(col) => col.name === selectedColumn.name,
+		);
+		if (navigableIndex === -1) return; // Column not found (shouldn't happen)
+
+		// Check if the column is already visible
+		const isVisible =
+			navigableIndex >= columnStartIndex &&
+			navigableIndex < columnStartIndex + visibleNavigableColumns.length;
+
+		if (isVisible) return; // Already visible, no scrolling needed
+
+		// Calculate new columnStartIndex to make the column visible
+		let newColumnStartIndex = columnStartIndex;
+
+		if (navigableIndex < columnStartIndex) {
+			// Column is to the left - scroll left to show it
+			newColumnStartIndex = navigableIndex;
+		} else {
+			// Column is to the right - scroll right to show it as the last visible column
+			// Ensure at least 1 column is visible
+			const visibleCount = Math.max(visibleNavigableColumns.length, 1);
+			newColumnStartIndex = Math.max(0, navigableIndex - visibleCount + 1);
+		}
+
+		// Apply the scroll
+		setColumnStartIndex(newColumnStartIndex);
+	};
+
 	// Input handling without early returns
 	useInput((input, key) => {
 		// Guard clause - but no early return, just continue
@@ -435,66 +481,133 @@ const DataPreviewViewComponent: React.FC = () => {
 			dispatch({ type: ActionType.SetView, view: ViewState.Query });
 		}
 
-		// Sorting shortcuts
-		if (input === "s" && state.columns.length > 0) {
-			// Cycle through columns for sorting
-			const currentColumn = state.sortConfig.column;
-			const currentDirection = state.sortConfig.direction;
-
-			let nextColumn: string | null = null;
-			let nextDirection: "asc" | "desc" | "off" = "asc";
-
-			if (!currentColumn) {
-				// Start with first column
-				nextColumn = state.columns[0].name;
-				nextDirection = "asc";
-			} else {
-				const currentIndex = state.columns.findIndex(
-					(col) => col.name === currentColumn,
-				);
-				if (currentIndex === -1) {
-					// Current column not found, start over
-					nextColumn = state.columns[0].name;
-					nextDirection = "asc";
-				} else {
-					if (currentDirection === "asc") {
-						// Same column, switch to desc
-						nextColumn = currentColumn;
-						nextDirection = "desc";
-					} else if (currentDirection === "desc") {
-						// Same column, switch to off
-						nextColumn = null;
-						nextDirection = "off";
-					} else {
-						// Move to next column
-						const nextIndex = (currentIndex + 1) % state.columns.length;
-						nextColumn = state.columns[nextIndex].name;
-						nextDirection = "asc";
-					}
-				}
-			}
-
-			dispatch({
-				type: ActionType.SetSortConfig,
-				sortConfig: { column: nextColumn, direction: nextDirection },
-			});
+		// Sorting shortcuts - Enter sort picker mode
+		if (input === "s" && state.columns.length > 0 && !state.sortPickerMode) {
+			dispatch({ type: ActionType.EnterSortPickerMode });
+			return;
 		}
 
-		// Clear sorting
-		if (input === "S") {
+		// In sort picker mode, handle navigation and selection
+		if (state.sortPickerMode) {
+			// Exit sort picker mode without applying
+			if (key.escape) {
+				dispatch({ type: ActionType.ExitSortPickerMode });
+				return;
+			}
+
+			// Navigate between columns with h/l (vim-style left/right) with wrapping
+			if (input === "h" || input === "H") {
+				const newIndex =
+					state.sortPickerColumnIndex === 0
+						? state.columns.length - 1
+						: state.sortPickerColumnIndex - 1;
+				dispatch({
+					type: ActionType.SetSortPickerColumn,
+					columnIndex: newIndex,
+				});
+				// Auto-scroll to make the selected column visible
+				autoScrollToColumn(newIndex);
+				return;
+			}
+
+			if (input === "l" || input === "L") {
+				const newIndex =
+					state.sortPickerColumnIndex >= state.columns.length - 1
+						? 0
+						: state.sortPickerColumnIndex + 1;
+				dispatch({
+					type: ActionType.SetSortPickerColumn,
+					columnIndex: newIndex,
+				});
+				// Auto-scroll to make the selected column visible
+				autoScrollToColumn(newIndex);
+				return;
+			}
+
+			// Change sort direction with k/j (vim-style up/down)
+			const selectedColumn = state.columns[state.sortPickerColumnIndex]?.name;
+			if (selectedColumn && (input === "k" || input === "K")) {
+				// k = ascending
+				dispatch({
+					type: ActionType.SetSortConfig,
+					sortConfig: {
+						column: selectedColumn,
+						direction: "asc",
+					},
+				});
+				return;
+			}
+
+			if (selectedColumn && (input === "j" || input === "J")) {
+				// j = descending
+				dispatch({
+					type: ActionType.SetSortConfig,
+					sortConfig: {
+						column: selectedColumn,
+						direction: "desc",
+					},
+				});
+				return;
+			}
+
+			if (input === "o" || input === "O") {
+				// o = off (clear sorting)
+				dispatch({
+					type: ActionType.SetSortConfig,
+					sortConfig: {
+						column: null,
+						direction: "off",
+					},
+				});
+				return;
+			}
+
+			// Apply sort and exit with Enter or 's'
+			if (key.return || input === "s") {
+				dispatch({ type: ActionType.ExitSortPickerMode });
+				// Refetch data with new sort configuration, reset to page 1
+				void fetchTableData(
+					dispatch,
+					state,
+					{
+						type: state.dbType,
+						connectionString: state.activeConnection.connectionString,
+					},
+					table,
+					{ offset: 0, limit: PAGE_SIZE }, // Reset to page 1 when applying sort
+				);
+				return;
+			}
+		}
+
+		// Clear sorting (when not in picker mode)
+		if (input === "S" && !state.sortPickerMode) {
 			dispatch({
 				type: ActionType.SetSortConfig,
 				sortConfig: { column: null, direction: "off" },
 			});
+			// Automatically refresh without sort
+			void fetchTableData(
+				dispatch,
+				state,
+				{
+					type: state.dbType,
+					connectionString: state.activeConnection.connectionString,
+				},
+				table,
+				{ offset: state.currentOffset, limit: PAGE_SIZE },
+			);
 		}
 
 		// Column navigation with arrow keys (only for navigable columns, PK columns stay fixed)
-		if (key.leftArrow && columnStartIndex > 0) {
+		// Note: When in sort picker mode, arrows are used for column selection instead
+		if (key.leftArrow && !state.sortPickerMode && columnStartIndex > 0) {
 			setColumnStartIndex(Math.max(0, columnStartIndex - 1));
 			return;
 		}
 		if (
 			key.rightArrow &&
+			!state.sortPickerMode &&
 			visibleNavigableColumns.length > 0 &&
 			columnStartIndex + visibleNavigableColumns.length <
 				navigableColumns.length
@@ -625,6 +738,9 @@ const DataPreviewViewComponent: React.FC = () => {
 						state.sortConfig,
 						columnStartIndex,
 						fixedPKColumns.length,
+						state.sortPickerMode,
+						state.sortPickerColumnIndex,
+						state.columns,
 					)}
 					<Text dimColor>
 						{renderSeparatorLine(
@@ -666,8 +782,9 @@ const DataPreviewViewComponent: React.FC = () => {
 			{/* Help text */}
 			<Box marginTop={1}>
 				<Text color="gray" dimColor>
-					↑↓Rows ←→Cols Home/End • p/n Pg • s↑↓Sort • rRefresh • EscBack
-					{fixedPKColumns.length > 0 && " • 🔑PKs fixed"}
+					{state.sortPickerMode
+						? "Sort Mode: h/l Select Column • k Asc • j Desc • o Off • Enter/s Apply • Esc Cancel"
+						: "↑↓←→ Nav • Home/End • p/n Page • s Sort • f Filter • r Refresh • d Details • e Export • Ctrl+c Copy • Esc Back • ? Help"}
 				</Text>
 			</Box>
 		</Box>
@@ -778,6 +895,9 @@ function renderHeaderRow(
 	sortConfig: { column: string | null; direction: "asc" | "desc" | "off" },
 	columnStartIndex: number,
 	fixedPKCount: number,
+	sortPickerMode: boolean,
+	sortPickerColumnIndex: number,
+	allColumns: ColumnInfo[],
 ): React.ReactElement {
 	const parts: React.ReactElement[] = [];
 
@@ -809,6 +929,11 @@ function renderHeaderRow(
 		const isSelectedColumn =
 			isPKColumn || isRegularSelectedColumn || isOnlySelectedColumn;
 
+		// Check if this column is selected in sort picker mode
+		// Compare by column name instead of index since visibleColumns is a subset of state.columns
+		const isSortPickerSelected =
+			sortPickerMode && column.name === allColumns[sortPickerColumnIndex]?.name;
+
 		// Choose appropriate color
 		let headerColor = getHeaderColor();
 		if (column.isPrimaryKey) {
@@ -817,12 +942,16 @@ function renderHeaderRow(
 		if (isSelectedColumn) {
 			headerColor = "cyan";
 		}
+		if (isSortPickerSelected) {
+			headerColor = "magenta"; // Highlight selected column in sort picker mode
+		}
 
 		parts.push(
 			<Text
 				key={`col-${idx}`}
 				color={headerColor}
-				bold={isSelectedColumn || column.isPrimaryKey}
+				bold={isSelectedColumn || column.isPrimaryKey || isSortPickerSelected}
+				inverse={isSortPickerSelected} // Inverse colors for sort picker selection
 			>
 				{columnText}
 			</Text>,

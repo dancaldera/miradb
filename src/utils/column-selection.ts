@@ -38,40 +38,40 @@ export function getColumnDisplayWidth(column: ColumnInfo): number {
 
 	// IDs and small integers
 	if (column.isPrimaryKey || name.endsWith("_id") || name === "id") {
-		baseWidth = 6;
+		baseWidth = 8;
 	}
 	// Booleans - very compact
 	else if (type.includes("bool") || type.includes("bit")) {
-		baseWidth = 5;
+		baseWidth = 6;
 	}
-	// Dates - compact format
+	// Dates - show more for full timestamps
 	else if (type.includes("date") || type.includes("time")) {
-		baseWidth = 10;
+		baseWidth = 20;
 	}
-	// Email addresses - more compact
+	// Email addresses - show more to see full emails
 	else if (name.includes("email")) {
-		baseWidth = 15;
+		baseWidth = 25;
 	}
-	// Status, role, type - short enums - compact
+	// Status, role, type - short enums
 	else if (
 		name.includes("status") ||
 		name.includes("role") ||
 		name.includes("type")
 	) {
-		baseWidth = 8;
-	}
-	// Short text columns
-	else if (name.includes("name") || name.includes("title")) {
 		baseWidth = 12;
 	}
-	// Default text width
+	// Short text columns - show more text
+	else if (name.includes("name") || name.includes("title")) {
+		baseWidth = 20;
+	}
+	// Default text width - show more
 	else {
-		baseWidth = 10;
+		baseWidth = 15;
 	}
 
 	// Use the larger of header width or base width, but cap at maximum
 	const finalWidth = Math.max(minHeaderWidth, baseWidth);
-	return Math.min(finalWidth, 20); // Reduced maximum width for better table fitting
+	return Math.min(finalWidth, 30); // Increased maximum width to show more text
 }
 
 /**

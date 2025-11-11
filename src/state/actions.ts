@@ -51,6 +51,9 @@ export enum ActionType {
 	SetQueryHistory = "SET_QUERY_HISTORY",
 	AddQueryHistoryItem = "ADD_QUERY_HISTORY_ITEM",
 	SetSortConfig = "SET_SORT_CONFIG",
+	EnterSortPickerMode = "ENTER_SORT_PICKER_MODE",
+	ExitSortPickerMode = "EXIT_SORT_PICKER_MODE",
+	SetSortPickerColumn = "SET_SORT_PICKER_COLUMN",
 	SetFilterValue = "SET_FILTER_VALUE",
 	ExportData = "EXPORT_DATA",
 	SetShowCommandHints = "SET_SHOW_COMMAND_HINTS",
@@ -106,6 +109,9 @@ export type AppAction =
 	| { type: ActionType.SetQueryHistory; history: QueryHistoryItem[] }
 	| { type: ActionType.AddQueryHistoryItem; item: QueryHistoryItem }
 	| { type: ActionType.SetSortConfig; sortConfig: SortConfig }
+	| { type: ActionType.EnterSortPickerMode }
+	| { type: ActionType.ExitSortPickerMode }
+	| { type: ActionType.SetSortPickerColumn; columnIndex: number }
 	| { type: ActionType.SetFilterValue; filterValue: string }
 	| {
 			type: ActionType.ExportData;
