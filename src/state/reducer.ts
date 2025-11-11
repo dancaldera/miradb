@@ -153,12 +153,27 @@ export function appReducer(
 				{
 					const key = tableCacheKey(action.table);
 					const cache = key ? draft.tableCache[key] : undefined;
+					console.log("[Reducer] SetSelectedTable:", {
+						table: `${action.table.schema || "public"}.${action.table.name}`,
+						cacheKey: key,
+						cacheExists: !!cache,
+						cacheData: cache
+							? {
+									columnsCount: cache.columns.length,
+									rowsCount: cache.rows.length,
+								}
+							: null,
+					});
 					if (cache) {
+						console.log("[Reducer] Loading from cache");
 						draft.columns = cache.columns;
 						draft.dataRows = cache.rows;
 						draft.hasMoreRows = cache.hasMore;
 						draft.currentOffset = cache.offset;
 					} else {
+						console.log(
+							"[Reducer] No cache, initializing empty & creating cache entry",
+						);
 						draft.columns = [];
 						draft.dataRows = [];
 						draft.hasMoreRows = false;
@@ -221,6 +236,12 @@ export function appReducer(
 				break;
 
 			case ActionType.SetDataRows:
+				console.log("[Reducer] SetDataRows:", {
+					rowCount: action.rows.length,
+					selectedTable: draft.selectedTable
+						? `${draft.selectedTable.schema || "public"}.${draft.selectedTable.name}`
+						: null,
+				});
 				draft.dataRows = action.rows;
 				{
 					const key = tableCacheKey(draft.selectedTable);
@@ -233,6 +254,13 @@ export function appReducer(
 						};
 						cache.rows = action.rows;
 						draft.tableCache[key] = cache;
+						console.log(
+							"[Reducer] Updated cache for key:",
+							key,
+							"with",
+							action.rows.length,
+							"rows",
+						);
 						if (draft.refreshingTableKey === key) {
 							draft.refreshingTableKey = null;
 						}

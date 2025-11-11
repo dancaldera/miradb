@@ -232,12 +232,22 @@ export const DataPreviewView: React.FC = () => {
 
 	// Effect for data loading
 	useEffect(() => {
+		console.log("[DataPreviewView] Effect triggered:", {
+			hasConnection: !!state.activeConnection,
+			dbType: state.dbType,
+			hasTable: !!table,
+			tableName: table ? `${table.schema || "public"}.${table.name}` : null,
+			columnsCount: state.columns.length,
+			dataRowsCount: state.dataRows.length,
+		});
+
 		if (!state.activeConnection || !state.dbType || !table) {
 			dispatch({ type: ActionType.SetView, view: ViewState.Tables });
 			return;
 		}
 
 		if (state.columns.length === 0) {
+			console.log("[DataPreviewView] Fetching columns for table:", table);
 			void fetchColumns(
 				dispatch,
 				state,
@@ -250,6 +260,11 @@ export const DataPreviewView: React.FC = () => {
 		}
 
 		if (state.dataRows.length === 0) {
+			console.log("[DataPreviewView] Fetching table data:", {
+				table: `${table.schema || "public"}.${table.name}`,
+				offset: 0,
+				limit: PAGE_SIZE,
+			});
 			void fetchTableData(
 				dispatch,
 				state,
@@ -590,8 +605,38 @@ export const DataPreviewView: React.FC = () => {
 	}
 
 	// Main table view
+	// Build the debug query string (temporary for debugging)
+	const debugQuery =
+		table && state.dbType
+			? `SELECT * FROM ${table.schema ? `"${table.schema}"."${table.name}"` : `"${table.name}"`} LIMIT ${PAGE_SIZE} OFFSET ${state.currentOffset}`
+			: "";
+
 	return (
 		<Box flexDirection="column">
+			{/* DEBUG: Show SQL query and diagnostics */}
+			<Box
+				flexDirection="column"
+				marginBottom={1}
+				borderStyle="round"
+				borderColor="yellow"
+				paddingX={1}
+			>
+				<Text color="yellow" bold>
+					🐛 DEBUG INFO
+				</Text>
+				<Text dimColor>
+					Query: <Text color="green">{debugQuery}</Text>
+				</Text>
+				<Text dimColor>
+					State: dataRows={state.dataRows.length} | columns=
+					{state.columns.length} | loading={state.loading ? "yes" : "no"} |
+					error={state.errorMessage ? "YES" : "no"}
+				</Text>
+				{state.errorMessage && (
+					<Text color="red">Error: {state.errorMessage}</Text>
+				)}
+			</Box>
+
 			{/* Compact header */}
 			<Box flexDirection="row" marginBottom={1}>
 				<Text color="cyan" bold>
