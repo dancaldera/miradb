@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
-import type { ColumnInfo, DataRow } from "../types/state.js";
+import type { ColumnInfo, DataRow, TableInfo } from "../types/state.js";
 import { formatValueForDisplay } from "./data-processing.js";
 
 export interface ExportOptions {
@@ -114,4 +114,119 @@ export function validateExportOptions(
 		filename: options.filename,
 		outputDir: options.outputDir,
 	};
+}
+
+/**
+ * Export schema information to JSON
+ */
+export async function exportSchema(
+	tables: TableInfo[],
+	columns: Record<string, ColumnInfo[]>,
+	options: {
+		filename?: string;
+		outputDir?: string;
+	} = {},
+): Promise<string> {
+	const outputDir = options.outputDir || join(homedir(), ".mirador", "exports");
+	const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+	const defaultFilename = `schema-${timestamp}.json`;
+	const filename = options.filename || defaultFilename;
+	const filepath = join(outputDir, filename);
+
+	await mkdir(outputDir, { recursive: true });
+
+	const schemaData = {
+		exportedAt: new Date().toISOString(),
+		tables: tables.map((table) => ({
+			name: table.name,
+			schema: table.schema,
+			type: table.type,
+			columns:
+				columns[table.schema ? `${table.schema}.${table.name}` : table.name] ||
+				[],
+		})),
+	};
+
+	const content = JSON.stringify(schemaData, null, 2);
+	await writeFile(filepath, content, "utf-8");
+	return filepath;
+}
+
+/**
+ * Programmatic JSON export for AI agents
+ * Returns data as JSON string without writing to file
+ */
+export function exportToJsonString(
+	data: DataRow[],
+	columns?: ColumnInfo[],
+	includeMetadata = true,
+): string {
+	if (includeMetadata && columns) {
+		const metadata = {
+			exportedAt: new Date().toISOString(),
+			columns: columns.map((col) => ({
+				name: col.name,
+				dataType: col.dataType,
+				nullable: col.nullable,
+				isPrimaryKey: col.isPrimaryKey,
+				isForeignKey: col.isForeignKey,
+			})),
+			rowCount: data.length,
+			data: data,
+		};
+		return JSON.stringify(metadata, null, 2);
+	} else {
+		return JSON.stringify(data, null, 2);
+	}
+}
+
+/**
+ * Stream data to JSON for large datasets
+ * Useful for AI agents processing large result sets
+ */
+export async function* streamToJson(
+	data: DataRow[],
+	columns?: ColumnInfo[],
+	chunkSize = 1000,
+): AsyncGenerator<string> {
+	// Start of JSON array
+	if (columns) {
+		const metadata = {
+			exportedAt: new Date().toISOString(),
+			columns: columns.map((col) => ({
+				name: col.name,
+				dataType: col.dataType,
+				nullable: col.nullable,
+				isPrimaryKey: col.isPrimaryKey,
+				isForeignKey: col.isForeignKey,
+			})),
+			rowCount: data.length,
+			data: [],
+		};
+		yield JSON.stringify(metadata, null, 2).replace(
+			'"data": []',
+			'"data": [\n',
+		);
+	} else {
+		yield "[\n";
+	}
+
+	// Stream data in chunks
+	for (let i = 0; i < data.length; i += chunkSize) {
+		const chunk = data.slice(i, i + chunkSize);
+		const chunkJson = chunk
+			.map((row) => JSON.stringify(row, null, 2))
+			.join(",\n");
+		yield chunkJson;
+		if (i + chunkSize < data.length) {
+			yield ",\n";
+		}
+	}
+
+	// End of JSON array
+	if (columns) {
+		yield "\n]}";
+	} else {
+		yield "\n]";
+	}
 }

@@ -177,6 +177,139 @@ Key state patterns:
 - Mock database drivers for reliable testing
 - Coverage target: >80%
 
+## AI Agent Integration
+
+Mirador includes comprehensive AI agent support for programmatic database interaction. AI assistants can use multiple interfaces to interact with databases safely and efficiently.
+
+### Agent Interfaces
+
+#### 1. Programmatic Agent API (`src/agent-api.ts`)
+
+**Primary Interface for AI Agents:**
+
+```typescript
+import { createAgent } from "mirador/agent-api";
+
+const agent = createAgent();
+
+// Safe connection with automatic guardrails
+await agent.connect({
+  type: "postgresql",
+  host: "localhost",
+  database: "mydb",
+  user: "myuser",
+  password: "mypassword"
+});
+
+// Safe queries with automatic LIMIT warnings
+const result = await agent.query("SELECT * FROM users LIMIT 10");
+console.log(`Found ${result.rowCount} users`);
+
+// Safe user sampling (max 50 users)
+const users = await agent.getUsersSample(10);
+
+// Safe table browsing (max 1000 rows)
+const data = await agent.getTableData("users", {
+  limit: 100,
+  where: "active = true",
+  orderBy: "created_at DESC"
+});
+
+await agent.disconnect();
+```
+
+#### 2. API Mode (Interactive JSON Protocol)
+
+**For interactive AI agent control:**
+
+```bash
+mirador --api
+```
+
+**JSON Commands via stdin:**
+```json
+{"type": "connect", "payload": {"type": "postgresql", "connectionString": "postgresql://user:pass@host/db"}}
+{"type": "query", "payload": {"sql": "SELECT * FROM users LIMIT 5"}}
+{"type": "get_schema"}
+{"type": "exit"}
+```
+
+#### 3. Headless Mode (Direct CLI Execution)
+
+**For one-off operations:**
+
+```bash
+# Safe execution with automatic limits
+mirador --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT * FROM users LIMIT 10" --output json
+```
+
+### Safety Guardrails
+
+Mirador includes automatic safety measures to prevent data exhaustion:
+
+- **Query Limits**: Warns about queries without LIMIT clauses
+- **Result Size Warnings**: Alerts when queries return >1000 rows
+- **Dangerous Operations**: Warns about DROP, DELETE, TRUNCATE, UPDATE without WHERE
+- **Safe Methods**: `getUsersSample()` and `getTableData()` have automatic limits
+- **Override Options**: `{ skipLimitWarning: true }` for intentional large queries
+
+### Database Support
+
+- **PostgreSQL**: Full support with connection pooling
+- **MySQL**: Full support with connection pooling
+- **SQLite**: Full support with Bun's native driver
+
+### TypeScript Integration
+
+**Complete type safety for AI agents:**
+
+```typescript
+import type {
+  MiradorAgentInterface,
+  AgentDatabaseConfig,
+  AgentQueryResult,
+  AgentSchemaInfo,
+  AgentQueryOptions
+} from "mirador/types/agent";
+```
+
+### Usage Guidelines for AI Agents
+
+1. **Always use LIMIT clauses** in SELECT queries
+2. **Use safe methods** like `getUsersSample()` for exploration
+3. **Check warnings** before executing potentially expensive queries
+4. **Close connections** after use
+5. **Handle errors** appropriately
+6. **Use parameterized queries** when possible to prevent SQL injection
+
+### Available Methods
+
+- `connect(config)` - Connect to database
+- `disconnect()` - Close connection
+- `query(sql, options?)` - Execute SQL with safety guardrails
+- `getSchema()` - Get database schema information
+- `getTableData(tableName, options)` - Safe table browsing
+- `getUsersSample(limit?)` - Safe user sampling
+- `transaction(queries)` - Execute multiple queries as transaction
+- `isConnected()` - Check connection status
+
+### Error Handling
+
+All methods throw descriptive errors for:
+- Connection failures
+- Invalid queries
+- Permission issues
+- Network timeouts
+
+```typescript
+try {
+  await agent.connect(config);
+  const result = await agent.query("SELECT * FROM users LIMIT 10");
+} catch (error) {
+  console.error("Database operation failed:", error.message);
+}
+```
+
 ## Migration Context
 
 This is a **migration from Go to Node.js/TypeScript**. The original Go version used:

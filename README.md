@@ -8,6 +8,7 @@ Mirador is a powerful TUI (Text User Interface) application that lets you explor
 
 - **Multi-Database Support**: Connect to PostgreSQL, MySQL, and SQLite databases
 - **Interactive TUI**: Beautiful terminal UI with keyboard navigation
+- **AI Agent Ready**: Programmatic APIs, JSON API mode, and headless automation
 - **Connection Management**: Save and manage multiple database connections
 - **Schema Exploration**: Browse tables, columns, and data types
 - **Data Preview**: View and paginate through table data
@@ -65,6 +66,37 @@ sudo ln -sf /usr/local/lib/mirador/mirador /usr/local/bin/mirador
 mirador
 ```
 
+### AI Agent Quick Start
+
+**1. Install dependencies:**
+```bash
+bun install
+```
+
+**2. Use the programmatic API:**
+```typescript
+import { createAgent } from "mirador/agent-api";
+
+const agent = createAgent();
+await agent.connect({ type: "postgresql", host: "localhost", database: "mydb" });
+const result = await agent.query("SELECT * FROM users LIMIT 10");
+console.log(result.rows);
+await agent.disconnect();
+```
+
+**3. Or use headless mode:**
+```bash
+mirador --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT COUNT(*) FROM users"
+```
+
+**4. Or API mode for interactive control:**
+```bash
+mirador --api
+# Then send: {"type": "connect", "payload": {"type": "postgresql", "connectionString": "..."}}
+```
+
+See [AGENT-API.md](./AGENT-API.md) for complete documentation.
+
 ## Usage
 
 ### Connecting to a Database
@@ -92,6 +124,32 @@ mirador
 | `Esc` | Go back / Quit |
 | `Ctrl+S` | Saved connections |
 | `Ctrl+C` | Force quit |
+
+### Command Line Options
+
+```bash
+mirador [OPTIONS]
+
+MODES:
+  --api, -a                    Run in API mode for programmatic control
+  --headless, -h               Run in headless mode (no TUI)
+
+CONNECTION OPTIONS:
+  --db-type <type>             Database type: postgresql, mysql, sqlite
+  --connect, -c <string>       Connection string or SQLite file path
+  --host <host>                Database host
+  --port <port>                Database port
+  --database, -d <name>        Database name
+  --user, -u <username>        Database username
+  --password, -p <password>    Database password
+
+QUERY OPTIONS:
+  --query, -q <sql>            SQL query to execute
+  --output <format>            Output format: json, table (default: table)
+
+OTHER:
+  --help                       Show help message
+```
 
 ## Development
 
