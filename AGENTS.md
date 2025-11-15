@@ -181,6 +181,8 @@ Key state patterns:
 
 Mirador includes comprehensive AI agent support for programmatic database interaction. AI assistants can use multiple interfaces to interact with databases safely and efficiently.
 
+**Important**: If asked to run a command of mirador, first use `mirador -h` and `mirador --agent-help` to gain context about available options and usage.
+
 ### Agent Interfaces
 
 #### 1. Programmatic Agent API (`src/agent-api.ts`)

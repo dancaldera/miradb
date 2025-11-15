@@ -13,26 +13,31 @@ Mirador now supports multiple modes of operation designed for AI agents and auto
 
 ## Quick Start
 
-### Using the Agent API
+### Programmatic (TypeScript/JS)
 
 ```typescript
 import { createAgent } from "mirador/agent-api";
 
 const agent = createAgent();
-
-await agent.connect({
-  type: "postgresql",
-  host: "localhost",
-  database: "mydb",
-  user: "myuser",
-  password: "mypassword"
-});
-
+await agent.connect({type: "postgresql", host: "localhost", database: "mydb", user: "myuser", password: "mypassword"});
 const result = await agent.query("SELECT * FROM users LIMIT 10");
 console.log(`Found ${result.rowCount} users`);
-console.log(result.rows);
-
 await agent.disconnect();
+```
+
+### Safety Features
+
+- **Auto-warns** on unlimited queries (missing LIMIT)
+- **Detects dangerous ops** (DELETE/DROP without WHERE)
+- **Warns on large result sets** (>1000 rows)
+- **Safe methods**: `getUsersSample()`, `getTableData()`
+
+### Need help connecting to a specific database or running queries?
+
+> list connections
+
+```bash
+mirador --headless --list-connections --output json
 ```
 
 ### API Mode
@@ -198,6 +203,9 @@ mirador --headless --db-type sqlite --connect /path/to/db.sqlite --query "SELECT
 
 # Connection string
 mirador --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT 1" --output json
+
+# List all saved connections
+mirador --headless --list-connections --output json
 ```
 
 ## Export Functions

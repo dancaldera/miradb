@@ -13,6 +13,8 @@ export interface CliArgs {
 	output?: "json" | "table";
 	/** Run in headless mode (no TUI) */
 	headless?: boolean;
+	/** List saved connections */
+	listConnections?: boolean;
 	/** Show help */
 	help?: boolean;
 	/** Show AI agent instructions */
@@ -39,8 +41,9 @@ export const parseCliArgs = (): CliArgs => {
 				connect: { type: "string", short: "c" },
 				query: { type: "string", short: "q" },
 				output: { type: "string", default: "table" },
-				headless: { type: "boolean", short: "h" },
-				help: { type: "boolean" },
+				headless: { type: "boolean" },
+				"list-connections": { type: "boolean" },
+				help: { type: "boolean", short: "h" },
 				"agent-help": { type: "boolean" },
 				host: { type: "string" },
 				port: { type: "string" },
@@ -58,6 +61,7 @@ export const parseCliArgs = (): CliArgs => {
 			query: values.query as string,
 			output: (values.output as "json" | "table") || "table",
 			headless: values.headless as boolean,
+			listConnections: values["list-connections"] as boolean,
 			help: values.help as boolean,
 			agentHelp: values["agent-help"] as boolean,
 			host: values.host as string,
@@ -76,14 +80,17 @@ export const showHelp = () => {
 	console.log(`
 Mirador - Terminal Database Explorer
 
+AI Agents: Use --agent-help for comprehensive API documentation and usage examples.
+
 USAGE:
   mirador [OPTIONS]
 
-MODES:
-  --api, -a                    Run in API mode for programmatic control
-  --headless, -h               Run in headless mode (no TUI)
+ MODES:
+   --api, -a                    Run in API mode for programmatic control
+   --headless                   Run in headless mode (no TUI)
+   --list-connections           List all saved connections
 
-CONNECTION OPTIONS:
+ CONNECTION OPTIONS:
   --db-type <type>             Database type: postgresql, mysql, sqlite
   --connect, -c <string>       Connection string or SQLite file path
   --host <host>                Database host
@@ -97,7 +104,7 @@ QUERY OPTIONS:
   --output <format>            Output format: json, table (default: table)
 
 OTHER:
-  --help                       Show this help message
+  --help, -h                   Show this help message
   --agent-help                 Show AI agent instructions (if you're an agent READ THIS)
 
 EXAMPLES:
@@ -135,26 +142,31 @@ Mirador now supports multiple modes of operation designed for AI agents and auto
 
 ## Quick Start
 
-### Using the Agent API
+### Programmatic (TypeScript/JS)
 
 \`\`\`typescript
 import { createAgent } from "mirador/agent-api";
 
 const agent = createAgent();
-
-await agent.connect({
-  type: "postgresql",
-  host: "localhost",
-  database: "mydb",
-  user: "myuser",
-  password: "mypassword"
-});
-
+await agent.connect({type: "postgresql", host: "localhost", database: "mydb", user: "myuser", password: "mypassword"});
 const result = await agent.query("SELECT * FROM users LIMIT 10");
 console.log(\`Found \${result.rowCount} users\`);
-console.log(result.rows);
-
 await agent.disconnect();
+\`\`\`
+
+### Safety Features
+
+- **Auto-warns** on unlimited queries (missing LIMIT)
+- **Detects dangerous ops** (DELETE/DROP without WHERE)
+- **Warns on large result sets** (>1000 rows)
+- **Safe methods**: \`getUsersSample()\`, \`getTableData()\`
+
+### Need help connecting to a specific database or running queries?
+
+> list connections
+
+\`\`\`bash
+mirador --headless --list-connections --output json
 \`\`\`
 
 ### API Mode
@@ -320,6 +332,9 @@ mirador --headless --db-type sqlite --connect /path/to/db.sqlite --query "SELECT
 
 # Connection string
 mirador --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT 1" --output json
+
+# List all saved connections
+mirador --headless --list-connections --output json
 \`\`\`
 
 ## Export Functions

@@ -130,9 +130,9 @@ See [AGENT-API.md](./AGENT-API.md) for complete documentation.
 ```bash
 mirador [OPTIONS]
 
-MODES:
-  --api, -a                    Run in API mode for programmatic control
-  --headless, -h               Run in headless mode (no TUI)
+ MODES:
+   --api, -a                    Run in API mode for programmatic control
+   --headless                   Run in headless mode (no TUI)
 
 CONNECTION OPTIONS:
   --db-type <type>             Database type: postgresql, mysql, sqlite
@@ -148,7 +148,7 @@ QUERY OPTIONS:
   --output <format>            Output format: json, table (default: table)
 
 OTHER:
-  --help                       Show help message
+  --help, -h                   Show help message
 ```
 
 ## Development

@@ -6,6 +6,7 @@ import { AppProvider, useAppDispatch, useAppState } from "./state/context.js";
 import { initializeApp } from "./state/effects.js";
 import { type DBType, ViewState } from "./types/state.js";
 import type { CliArgs } from "./utils/cli-args.js";
+import { loadConnections } from "./utils/persistence.js";
 
 const HeadlessApp: React.FC<{ args: CliArgs }> = ({ args }) => {
 	const dispatch = useAppDispatch();
@@ -19,6 +20,13 @@ const HeadlessApp: React.FC<{ args: CliArgs }> = ({ args }) => {
 			try {
 				await initializeApp(dispatch);
 				setInitialized(true);
+
+				// Handle list connections
+				if (args.listConnections) {
+					const { connections } = await loadConnections();
+					setResult(connections);
+					return;
+				}
 
 				// Handle connection
 				if (args.connect && args.dbType) {
