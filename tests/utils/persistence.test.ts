@@ -278,7 +278,7 @@ describe("persistence utilities", () => {
 				},
 			];
 
-			await saveConnections(connections);
+			await saveConnections(connections, true);
 
 			expect(mockWriteFile).toHaveBeenCalledWith(
 				path.join(mockDataDir, "connections.json"),
@@ -288,7 +288,7 @@ describe("persistence utilities", () => {
 		});
 
 		it("creates directory if it doesn't exist", async () => {
-			await saveConnections([]);
+			await saveConnections([], true);
 
 			expect(mockMkdir).toHaveBeenCalledWith(mockDataDir, { recursive: true });
 		});
@@ -389,7 +389,7 @@ describe("persistence utilities", () => {
 				},
 			];
 
-			await saveQueryHistory(history);
+			await saveQueryHistory(history, true);
 
 			expect(mockWriteFile).toHaveBeenCalledWith(
 				path.join(mockDataDir, "query-history.json"),
@@ -549,7 +549,7 @@ describe("persistence utilities", () => {
 
 			mockReadFile.mockResolvedValue(JSON.stringify(existingCache));
 
-			await saveTableCache("conn2", newCache);
+			await saveTableCache("conn2", newCache, true);
 
 			const expectedCache = {
 				...existingCache,
@@ -585,7 +585,7 @@ describe("persistence utilities", () => {
 
 			mockReadFile.mockResolvedValue(JSON.stringify(existingCache));
 
-			await saveTableCache("conn1", newCache);
+			await saveTableCache("conn1", newCache, true);
 
 			const expectedCache = {
 				conn1: newCache,
@@ -610,7 +610,7 @@ describe("persistence utilities", () => {
 				},
 			};
 
-			await saveTableCache("conn1", newCache);
+			await saveTableCache("conn1", newCache, true);
 
 			expect(mockWriteFile).toHaveBeenCalledWith(
 				path.join(mockDataDir, "table-cache.json"),
@@ -641,7 +641,7 @@ describe("persistence utilities", () => {
 			const error = new Error("Disk full");
 			mockWriteFile.mockRejectedValue(error);
 
-			await expect(saveConnections([])).rejects.toThrow(error);
+			await expect(saveConnections([], true)).rejects.toThrow(error);
 		});
 	});
 
@@ -658,7 +658,7 @@ describe("persistence utilities", () => {
 				},
 			];
 
-			await saveConnections(originalConnections);
+			await saveConnections(originalConnections, true);
 			mockReadFile.mockResolvedValue(JSON.stringify(originalConnections));
 
 			const result = await loadConnections();

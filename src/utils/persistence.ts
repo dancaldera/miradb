@@ -201,10 +201,20 @@ export async function loadConnections(): Promise<ConnectionsLoadResult> {
 
 export async function saveConnections(
 	connections: ConnectionInfo[],
+	flush = false,
 ): Promise<void> {
 	await ensureDataDirectory();
-	// Use debounced writer to batch connection saves
-	connectionsWriter.write(connections);
+	if (flush) {
+		// For testing: write immediately to catch errors
+		await writeFile(
+			resolveDataPath("connections.json"),
+			JSON.stringify(connections, null, 2),
+			"utf-8",
+		);
+	} else {
+		// Use debounced writer to batch connection saves
+		connectionsWriter.write(connections);
+	}
 }
 
 export async function loadQueryHistory(): Promise<QueryHistoryItem[]> {
@@ -224,10 +234,20 @@ export async function loadQueryHistory(): Promise<QueryHistoryItem[]> {
 
 export async function saveQueryHistory(
 	history: QueryHistoryItem[],
+	flush = false,
 ): Promise<void> {
 	await ensureDataDirectory();
-	// Use debounced writer to batch query history saves
-	queryHistoryWriter.write(history);
+	if (flush) {
+		// For testing: write immediately to catch errors
+		await writeFile(
+			resolveDataPath("query-history.json"),
+			JSON.stringify(history, null, 2),
+			"utf-8",
+		);
+	} else {
+		// Use debounced writer to batch query history saves
+		queryHistoryWriter.write(history);
+	}
 }
 
 async function readTableCacheFile(): Promise<
@@ -296,11 +316,21 @@ export async function loadTableCache(
 export async function saveTableCache(
 	connectionId: string,
 	cache: Record<string, TableCacheEntry>,
+	flush = false,
 ): Promise<void> {
 	const file = await readTableCacheFile();
 	file[connectionId] = cache;
-	// Use debounced writer to batch multiple cache updates
-	tableCacheWriter.write(file);
+	if (flush) {
+		// For testing: write immediately to catch errors
+		await writeFile(
+			resolveDataPath("table-cache.json"),
+			JSON.stringify(file, null, 2),
+			"utf-8",
+		);
+	} else {
+		// Use debounced writer to batch multiple cache updates
+		tableCacheWriter.write(file);
+	}
 }
 
 function safeParse<T>(schema: z.ZodType<T>, data: unknown): T | null {
