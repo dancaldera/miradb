@@ -5,13 +5,18 @@ import { App } from "./App.js";
 import { runApiMode } from "./api-mode.js";
 import { runHeadlessMode } from "./headless-mode.js";
 import { registerInkInstance } from "./inkControl.js";
-import { parseCliArgs, showHelp } from "./utils/cli-args.js";
+import { parseCliArgs, showHelp, showAgentHelp } from "./utils/cli-args.js";
 
 const main = async () => {
 	const args = parseCliArgs();
 
 	if (args.help) {
 		showHelp();
+		process.exit(0);
+	}
+
+	if (args.agentHelp) {
+		showAgentHelp();
 		process.exit(0);
 	}
 

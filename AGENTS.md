@@ -310,13 +310,4 @@ try {
 }
 ```
 
-## Migration Context
 
-This is a **migration from Go to Node.js/TypeScript**. The original Go version used:
-
-- **bubbletea** for TUI → **Ink** (React for CLIs)
-- **Update/View pattern** → **React hooks + state management**
-- **Goroutines/channels** → **async/await with Promises**
-- **sql.DB** → **Driver-specific connection pooling**
-
-The migration preserves all functionality while leveraging the Node.js ecosystem and React's component model for better developer experience.
