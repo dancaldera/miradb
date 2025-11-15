@@ -1,8 +1,8 @@
-# Mirador
+# SeerDB
 
 > A modern, terminal-based database explorer for PostgreSQL, MySQL, and SQLite
 
-Mirador is a powerful TUI (Text User Interface) application that lets you explore, query, and manage your databases directly from your terminal. Built with TypeScript, React (Ink), and Bun for blazing-fast performance.
+SeerDB is a powerful TUI (Text User Interface) application that lets you explore, query, and manage your databases directly from your terminal. Built with TypeScript, React (Ink), and Bun for blazing-fast performance.
 
 ## Features
 
@@ -30,7 +30,7 @@ Mirador is a powerful TUI (Text User Interface) application that lets you explor
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd mirador
+cd seerdb
 
 # Install dependencies
 bun install
@@ -46,24 +46,24 @@ bun run dev
 bun run build:exe
 
 # Run the executable
-./dist/mirador.sh
+./dist/seerdb.sh
 ```
 
 #### Option 3: Install globally (after building)
 
 ```bash
 # Create installation directory
-sudo mkdir -p /usr/local/lib/mirador
+sudo mkdir -p /usr/local/lib/seerdb
 
 # Copy files
-sudo cp dist/mirador /usr/local/lib/mirador/
-sudo cp dist/yoga.wasm /usr/local/lib/mirador/
+sudo cp dist/seerdb /usr/local/lib/seerdb/
+sudo cp dist/yoga.wasm /usr/local/lib/seerdb/
 
 # Create symlink (or copy the wrapper script)
-sudo ln -sf /usr/local/lib/mirador/mirador /usr/local/bin/mirador
+sudo ln -sf /usr/local/lib/seerdb/seerdb /usr/local/bin/seerdb
 
 # Run from anywhere
-mirador
+seerdb
 ```
 
 ### AI Agent Quick Start
@@ -75,7 +75,7 @@ bun install
 
 **2. Use the programmatic API:**
 ```typescript
-import { createAgent } from "mirador/agent-api";
+import { createAgent } from "seerdb/agent-api";
 
 const agent = createAgent();
 await agent.connect({ type: "postgresql", host: "localhost", database: "mydb" });
@@ -86,12 +86,12 @@ await agent.disconnect();
 
 **3. Or use headless mode:**
 ```bash
-mirador --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT COUNT(*) FROM users"
+seerdb --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT COUNT(*) FROM users"
 ```
 
 **4. Or API mode for interactive control:**
 ```bash
-mirador --api
+seerdb --api
 # Then send: {"type": "connect", "payload": {"type": "postgresql", "connectionString": "..."}}
 ```
 
@@ -128,7 +128,7 @@ See [AGENT-API.md](./AGENT-API.md) for complete documentation.
 ### Command Line Options
 
 ```bash
-mirador [OPTIONS]
+seerdb [OPTIONS]
 
  MODES:
    --api, -a                    Run in API mode for programmatic control
@@ -156,7 +156,7 @@ OTHER:
 ### Project Structure
 
 ```
-mirador/
+seerdb/
 ├── src/
 │   ├── index.tsx              # Entry point
 │   ├── App.tsx                # Main application
@@ -199,7 +199,7 @@ bun test:coverage    # Run tests with coverage
 
 ### Architecture
 
-Mirador uses a modern React-based architecture:
+SeerDB uses a modern React-based architecture:
 
 - **UI Framework**: [Ink](https://github.com/vadimdemedes/ink) - React for CLIs
 - **State Management**: React Context + useReducer with Immer
@@ -228,9 +228,9 @@ bun run build:exe
 ```
 
 This creates:
-- `dist/mirador` - The executable (~59MB)
+- `dist/seerdb` - The executable (~59MB)
 - `dist/yoga.wasm` - Required WASM file
-- `dist/mirador.sh` - Wrapper script
+- `dist/seerdb.sh` - Wrapper script
 
 See [EXECUTABLE.md](./EXECUTABLE.md) for detailed distribution instructions.
 
@@ -243,7 +243,7 @@ To build for other platforms, run the build command on the target platform.
 
 ## Configuration
 
-Mirador stores configuration in `~/.mirador/`:
+SeerDB stores configuration in `~/.seerdb/`:
 - `connections.json` - Saved database connections
 - `query_history.json` - Query execution history
 
@@ -254,8 +254,8 @@ Mirador stores configuration in `~/.mirador/`:
 Use the wrapper script instead of running the executable directly:
 
 ```bash
-./dist/mirador.sh    # ✅ Correct
-./dist/mirador       # ❌ Will fail from outside dist/
+./dist/seerdb.sh    # ✅ Correct
+./dist/seerdb       # ❌ Will fail from outside dist/
 ```
 
 ### Connection Issues
@@ -269,8 +269,8 @@ Use the wrapper script instead of running the executable directly:
 Make the files executable:
 
 ```bash
-chmod +x dist/mirador
-chmod +x dist/mirador.sh
+chmod +x dist/seerdb
+chmod +x dist/seerdb.sh
 ```
 
 ## Contributing

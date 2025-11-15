@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Mirador** is a terminal-based database explorer application rewritten from Go to Node.js/TypeScript. It provides a text-based user interface (TUI) for exploring and querying PostgreSQL, MySQL, and SQLite databases using Ink (React for CLIs).
+**SeerDB** is a terminal-based database explorer application rewritten from Go to Node.js/TypeScript. It provides a text-based user interface (TUI) for exploring and querying PostgreSQL, MySQL, and SQLite databases using Ink (React for CLIs).
 
 ## Development Commands
 
@@ -115,8 +115,8 @@ Key state patterns:
 
 ### Database Connection Management
 
-- Connections are stored in `~/.mirador/connections.json`
-- Query history persisted in `~/.mirador/query_history.json`
+- Connections are stored in `~/.seerdb/connections.json`
+- Query history persisted in `~/.seerdb/query_history.json`
 - Connection pooling implemented for PostgreSQL and MySQL
 - SQLite uses Bun's built-in `bun:sqlite` driver with async wrapper
 
@@ -179,9 +179,9 @@ Key state patterns:
 
 ## AI Agent Integration
 
-Mirador includes comprehensive AI agent support for programmatic database interaction. AI assistants can use multiple interfaces to interact with databases safely and efficiently.
+SeerDB includes comprehensive AI agent support for programmatic database interaction. AI assistants can use multiple interfaces to interact with databases safely and efficiently.
 
-**Important**: If asked to run a command of mirador, first use `mirador -h` and `mirador --agent-help` to gain context about available options and usage.
+**Important**: If asked to run a command of seerdb, first use `seerdb -h` and `seerdb --agent-help` to gain context about available options and usage.
 
 ### Agent Interfaces
 
@@ -190,7 +190,7 @@ Mirador includes comprehensive AI agent support for programmatic database intera
 **Primary Interface for AI Agents:**
 
 ```typescript
-import { createAgent } from "mirador/agent-api";
+import { createAgent } from "seerdb/agent-api";
 
 const agent = createAgent();
 
@@ -225,7 +225,7 @@ await agent.disconnect();
 **For interactive AI agent control:**
 
 ```bash
-mirador --api
+seerdb --api
 ```
 
 **JSON Commands via stdin:**
@@ -242,12 +242,12 @@ mirador --api
 
 ```bash
 # Safe execution with automatic limits
-mirador --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT * FROM users LIMIT 10" --output json
+seerdb --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT * FROM users LIMIT 10" --output json
 ```
 
 ### Safety Guardrails
 
-Mirador includes automatic safety measures to prevent data exhaustion:
+SeerDB includes automatic safety measures to prevent data exhaustion:
 
 - **Query Limits**: Warns about queries without LIMIT clauses
 - **Result Size Warnings**: Alerts when queries return >1000 rows
@@ -267,12 +267,12 @@ Mirador includes automatic safety measures to prevent data exhaustion:
 
 ```typescript
 import type {
-  MiradorAgentInterface,
+  SeerDBAgentInterface,
   AgentDatabaseConfig,
   AgentQueryResult,
   AgentSchemaInfo,
   AgentQueryOptions
-} from "mirador/types/agent";
+} from "seerdb/types/agent";
 ```
 
 ### Usage Guidelines for AI Agents

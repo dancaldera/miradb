@@ -94,7 +94,7 @@ async function exampleTransaction() {
 
 // Example: API mode usage (programmatic control)
 async function exampleApiMode() {
-	// This would be used when running mirador --api
+	// This would be used when running seerdb --api
 	// Send JSON commands via stdin, receive responses via stdout
 
 	const commands = [
@@ -126,8 +126,8 @@ async function exampleApiMode() {
 
 // Example: Headless mode usage
 async function exampleHeadlessMode() {
-	// Run mirador with command line arguments
-	// mirador --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT * FROM users" --output json
+	// Run seerdb with command line arguments
+	// seerdb --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT * FROM users" --output json
 
 	console.log("Headless mode automatically connects, runs query, and outputs results");
 }

@@ -168,7 +168,7 @@ const AppContent: React.FC = () => {
 	return (
 		<Box flexDirection="column" paddingX={1} paddingY={1}>
 			<Text color="cyan" bold>
-				Mirador v{APP_VERSION}
+				SeerDB v{APP_VERSION}
 			</Text>
 			{state.showCommandHints && (
 				<Text color="gray" dimColor>

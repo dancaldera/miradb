@@ -1,10 +1,10 @@
 # Mirador Agent API
 
-This document explains how AI agents can programmatically interact with Mirador, the terminal-based database explorer.
+This document explains how AI agents can programmatically interact with SeerDB, the terminal-based database explorer.
 
 ## Overview
 
-Mirador now supports multiple modes of operation designed for AI agents and automation:
+SeerDB now supports multiple modes of operation designed for AI agents and automation:
 
 1. **Agent API** - Programmatic TypeScript/JavaScript interface
 2. **API Mode** - JSON-based stdin/stdout protocol
@@ -16,7 +16,7 @@ Mirador now supports multiple modes of operation designed for AI agents and auto
 ### Programmatic (TypeScript/JS)
 
 ```typescript
-import { createAgent } from "mirador/agent-api";
+import { createAgent } from "seerdb/agent-api";
 
 const agent = createAgent();
 await agent.connect({type: "postgresql", host: "localhost", database: "mydb", user: "myuser", password: "mypassword"});
@@ -37,15 +37,15 @@ await agent.disconnect();
 > list connections
 
 ```bash
-mirador --headless --list-connections --output json
+seerdb --headless --list-connections --output json
 ```
 
 ### API Mode
 
-Run Mirador in API mode for interactive JSON-based control:
+Run SeerDB in API mode for interactive JSON-based control:
 
 ```bash
-mirador --api
+seerdb --api
 ```
 
 Then send commands via stdin:
@@ -61,7 +61,7 @@ Then send commands via stdin:
 Execute queries directly from command line:
 
 ```bash
-mirador --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT * FROM users" --output json
+seerdb --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT * FROM users" --output json
 ```
 
 ## Agent API Reference
@@ -196,16 +196,16 @@ Execute one-off operations without the TUI:
 
 ```bash
 # PostgreSQL query
-mirador --headless --db-type postgresql --host localhost --database mydb --user myuser --password mypass --query "SELECT * FROM users" --output json
+seerdb --headless --db-type postgresql --host localhost --database mydb --user myuser --password mypass --query "SELECT * FROM users" --output json
 
 # SQLite query
-mirador --headless --db-type sqlite --connect /path/to/db.sqlite --query "SELECT * FROM table1" --output json
+seerdb --headless --db-type sqlite --connect /path/to/db.sqlite --query "SELECT * FROM table1" --output json
 
 # Connection string
-mirador --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT 1" --output json
+seerdb --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT 1" --output json
 
 # List all saved connections
-mirador --headless --list-connections --output json
+seerdb --headless --list-connections --output json
 ```
 
 ## Export Functions
@@ -213,7 +213,7 @@ mirador --headless --list-connections --output json
 ### JSON Export
 
 ```typescript
-import { exportToJsonString, exportSchema } from "mirador/utils/export";
+import { exportToJsonString, exportSchema } from "seerdb/utils/export";
 
 // Export query results to JSON string
 const jsonString = exportToJsonString(result.rows, columns, true);
@@ -227,7 +227,7 @@ const filepath = await exportSchema(tables, columns);
 For large datasets:
 
 ```typescript
-import { streamToJson } from "mirador/utils/export";
+import { streamToJson } from "seerdb/utils/export";
 
 for await (const chunk of streamToJson(largeDataset, columns)) {
   process.stdout.write(chunk);

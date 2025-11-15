@@ -1,7 +1,7 @@
 import type { DBType } from "../types/state.js";
 
 /**
- * Core interfaces for AI agent integration with Mirador
+ * Core interfaces for AI agent integration with SeerDB
  */
 
 // Database connection configuration
@@ -143,7 +143,7 @@ export interface AgentQueryOptions {
 /**
  * Main agent interface that AI systems can implement
  */
-export interface MiradorAgentInterface {
+export interface SeerDBAgentInterface {
 	/**
 	 * Connect to a database
 	 */
@@ -222,7 +222,7 @@ export type AgentEventListener = (event: AgentEvent) => void;
 /**
  * Extended agent interface with event support
  */
-export interface MiradorAgentInterfaceExtended extends MiradorAgentInterface {
+export interface SeerDBAgentInterfaceExtended extends SeerDBAgentInterface {
 	/**
 	 * Add event listener
 	 */
@@ -250,7 +250,7 @@ export interface MiradorAgentInterfaceExtended extends MiradorAgentInterface {
 /**
  * Factory function type for creating agents
  */
-export type AgentFactory = () => MiradorAgentInterface;
+export type AgentFactory = () => SeerDBAgentInterface;
 
 /**
  * Configuration for agent initialization

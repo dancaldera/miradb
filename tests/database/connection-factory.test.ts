@@ -184,7 +184,7 @@ describe("createDatabaseConnection", () => {
 
 	it("handles complex connection strings", () => {
 		const complexConnectionString =
-			"postgres://user:password@host:5432/database?sslmode=require&application_name=mirador";
+			"postgres://user:password@host:5432/database?sslmode=require&application_name=seerdb";
 		const config = {
 			type: DBType.PostgreSQL,
 			connectionString: complexConnectionString,

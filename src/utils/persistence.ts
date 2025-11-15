@@ -13,8 +13,7 @@ import type {
 import { DBType } from "../types/state.js";
 import { DebouncedWriter } from "./debounced-writer.js";
 
-let dataDir =
-	process.env.MIRADOR_DATA_DIR ?? path.join(os.homedir(), ".mirador");
+let dataDir = process.env.SEERDB_DATA_DIR ?? path.join(os.homedir(), ".seerdb");
 
 function resolveDataPath(filename: string): string {
 	return path.join(dataDir, filename);
