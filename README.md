@@ -133,6 +133,7 @@ seerdb [OPTIONS]
  MODES:
    --api, -a                    Run in API mode for programmatic control
    --headless                   Run in headless mode (no TUI)
+   --list-connections           List all saved connections
 
 CONNECTION OPTIONS:
   --db-type <type>             Database type: postgresql, mysql, sqlite
@@ -149,6 +150,16 @@ QUERY OPTIONS:
 
 OTHER:
   --help, -h                   Show help message
+```
+
+### Examples
+
+```bash
+# List all saved connections (works with any database engine)
+seerdb --headless --list-connections --output json
+
+# Query a specific database
+seerdb --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT * FROM users LIMIT 5" --output json
 ```
 
 ## Development
@@ -243,9 +254,9 @@ To build for other platforms, run the build command on the target platform.
 
 ## Configuration
 
-SeerDB stores configuration in `~/.seerdb/`:
-- `connections.json` - Saved database connections
-- `query_history.json` - Query execution history
+SeerDB stores configuration in `dist/demo.db` (SQLite database):
+- `connections` table - Saved database connections
+- Query history and other data stored in SQLite for better performance
 
 ## Troubleshooting
 

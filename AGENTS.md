@@ -243,6 +243,9 @@ seerdb --api
 ```bash
 # Safe execution with automatic limits
 seerdb --headless --db-type postgresql --connect "postgresql://user:pass@host/db" --query "SELECT * FROM users LIMIT 10" --output json
+
+# List all saved connections (works with any database engine)
+seerdb --headless --list-connections --output json
 ```
 
 ### Safety Guardrails
@@ -260,6 +263,10 @@ SeerDB includes automatic safety measures to prevent data exhaustion:
 - **PostgreSQL**: Full support with connection pooling
 - **MySQL**: Full support with connection pooling
 - **SQLite**: Full support with Bun's native driver
+
+### Connection Storage
+
+Saved connections are stored in SQLite database (`dist/demo.db`) for better performance and reliability compared to JSON files.
 
 ### TypeScript Integration
 

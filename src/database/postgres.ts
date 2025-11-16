@@ -19,6 +19,7 @@ export class PostgresConnection implements DatabaseConnection {
 			max: config.pool?.max ?? 10,
 			idleTimeoutMillis: config.pool?.idleTimeoutMillis ?? 30_000,
 			connectionTimeoutMillis: config.pool?.connectionTimeoutMillis ?? 10_000,
+			ssl: { rejectUnauthorized: false }, // Allow self-signed certificates for AWS RDS
 		});
 		this.closeTimeoutMillis = config.pool?.closeTimeoutMillis ?? 5_000;
 	}
